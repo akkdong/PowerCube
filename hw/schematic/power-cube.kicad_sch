@@ -11,6 +11,145 @@
 		(company "NotoriousRascal Club")
 	)
 	(lib_symbols
+		(symbol "C_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0.254)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "C"
+				(at 0.635 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "C"
+				(at 0.635 -2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0.9652 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Unpolarized capacitor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "cap capacitor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "C_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "C_1_0_1"
+				(polyline
+					(pts
+						(xy -2.032 0.762) (xy 2.032 0.762)
+					)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.032 -0.762) (xy 2.032 -0.762)
+					)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "C_1_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 2.794)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 2.794)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Connector_Generic:Conn_01x03"
 			(pin_names
 				(offset 1.016)
@@ -8786,6 +8925,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9008,6 +9148,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9220,6 +9361,7 @@
 					(color 49 25 0 0)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9500,6 +9642,7 @@
 					(color 49 25 0 0)
 				)
 				(justify right)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9572,6 +9715,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9646,6 +9790,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9737,6 +9882,7 @@
 					(color 49 25 0 0)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -10157,6 +10303,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -10317,6 +10464,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -10389,6 +10537,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -10460,6 +10609,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -10670,6 +10820,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -11715,6 +11866,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -11949,6 +12101,7 @@
 					(color 49 25 0 0)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -12023,6 +12176,7 @@
 					(color 49 25 0 0)
 				)
 				(justify right)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -12546,6 +12700,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -12863,6 +13018,7 @@
 					(color 49 25 0 0)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13074,6 +13230,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13312,6 +13469,7 @@
 		)
 	)
 	(symbol
+		(lib_name "C_1")
 		(lib_id "Device:C")
 		(at 38.1 261.62 180)
 		(unit 1)
@@ -13367,6 +13525,7 @@
 					(color 49 25 0 0)
 				)
 				(justify right)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13442,6 +13601,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13599,6 +13759,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13741,6 +13902,7 @@
 					(color 49 25 0 0)
 				)
 				(justify right)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13973,6 +14135,7 @@
 					(color 49 25 0 0)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -14404,6 +14567,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -14494,6 +14658,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -14563,6 +14728,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -14635,6 +14801,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -14776,6 +14943,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -14915,6 +15083,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -14985,6 +15154,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -15219,6 +15389,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -15309,6 +15480,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -15729,6 +15901,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -16156,6 +16329,7 @@
 					(size 1.27 1.27)
 					(color 49 25 0 0)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
