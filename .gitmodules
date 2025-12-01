@@ -1,0 +1,3 @@
+[submodule "ref/INA266"]
+	path = ref/INA266
+	url = https://github.com/RobTillaart/INA226.git
