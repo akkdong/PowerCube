@@ -43,5 +43,14 @@ fp-info-cache
 #
 #
 
+
+.pio
+.vscode
+.settings
+
 /ref
 /test
+/workspace
+
+Debug/
+PowerCube_Test/
