@@ -104,7 +104,7 @@ void AdcTask(void const * argument)
 
 	while (1)
 	{
-		if (HAL_GetTick() - lasTick > 1000)
+		if (HAL_GetTick() - lastTick > 1000)
 		{
 			// adcValue : 0x0FFF = adcVoltage : 3300 --> acqVoltage = adcValue * 3300 / 0x0FFF
 			float acqVoltage = (float)adcValue * 3300 / 0x0FFF;
@@ -114,6 +114,8 @@ void AdcTask(void const * argument)
 			//
 			lastTick = HAL_GetTick();
 		}
+
+		//
 	}
 }
 
