@@ -42,7 +42,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#if 0
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -51,40 +51,84 @@ DMA_HandleTypeDef hdma_adc1;
 
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
+
+UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
+
+osThreadId defaultTaskHandle;
+/* USER CODE BEGIN PV */
+#else
+
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+
+I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c2;
+
 /*
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 */
-osThreadId defaultTaskHandle;
-/* USER CODE BEGIN PV */
 
 SER_HandleTypeDef Serial2;
 SER_HandleTypeDef Serial3;
 
+GPIO_PinState powerBtnState;
+GPIO_PinState boardBtnState;
+uint8_t btnStateChanged = 0; // BIT 0: Power, BIT 1: Board
+
+#define MAX_RXSIZE	64
+
+char rxData[MAX_RXSIZE];
+uint8_t rxPos, txPos;
+
+uint8_t btConnected = 0;
+
+
+
+osThreadId defaultTaskHandle;
 osThreadId adcTaskHandle;
+
+osSemaphoreId powerSemaphoreId;
+osSemaphoreId boardSemaphoreId;
+
+osTimerId shutdownTimerId;
+
+
+osSemaphoreDef(PowerSemaphore);
+osSemaphoreDef(BoardSemaphore);
+
+
+
+#endif
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
-static void MX_LPUART1_UART_Init(void);
-static void MX_UCPD1_Init(void);
-static void MX_I2C1_Init(void);
-static void MX_I2C2_Init(void);
+void MX_GPIO_Init(void);
+void MX_DMA_Init(void);
+void MX_LPUART1_UART_Init(void);
+void MX_UCPD1_Init(void);
+void MX_I2C1_Init(void);
+void MX_I2C2_Init(void);
 /*
-static void MX_USART2_UART_Init(void);
+void MX_USART2_UART_Init(void);
 */
-static void MX_ADC1_Init(void);
+void MX_ADC1_Init(void);
 /*
-static void MX_USART3_UART_Init(void);
+void MX_USART3_UART_Init(void);
 */
 void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
-static void SER_USART2_UART_Init(UART_HandleTypeDef* handle);
-static void SER_USART3_UART_Init(UART_HandleTypeDef* handle);
+void SER_UART2_Init(UART_HandleTypeDef* handle);
+void SER_UART3_Init(UART_HandleTypeDef* handle);
+
+void ShutdownCallback(void const *arg);
+
+
+osTimerDef(ShutdownTimer, ShutdownCallback);
 
 
 /* USER CODE END PFP */
@@ -125,11 +169,11 @@ void AdcTask(void const * argument)
   * @brief  The application entry point.
   * @retval int
   */
-int main(void)
+int main_OBSOLETE(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+#if 0
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -155,16 +199,36 @@ int main(void)
   MX_UCPD1_Init();
   MX_I2C1_Init();
   MX_I2C2_Init();
-  /*
   MX_USART2_UART_Init();
-  */
   MX_ADC1_Init();
-  /*
   MX_USART3_UART_Init();
-  */
   /* USER CODE BEGIN 2 */
-  SER_begin(&Serial2, SER_USART2_UART_Init, USART2_IRQn);
-  SER_begin(&Serial3, SER_USART3_UART_Init, USART3_IRQn);
+#else
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_LPUART1_UART_Init();
+  MX_UCPD1_Init();
+  MX_I2C1_Init();
+  MX_I2C2_Init();
+  MX_ADC1_Init();
+
+  //
+  SER_begin(&Serial2, SER_UART2_Init, USART2_IRQn);
+  SER_begin(&Serial3, SER_UART3_Init, USART3_IRQn);
+
+  //
+  powerSemaphoreId = osSemaphoreCreate(osSemaphore(PowerSemaphore), 1);
+  boardSemaphoreId = osSemaphoreCreate(osSemaphore(BoardSemaphore), 1);
+
+  shutdownTimerId = osTimerCreate(osTimer(ShutdownTimer), osTimerOnce, 0);
+#endif
   /* USER CODE END 2 */
 
   /* USBPD initialisation ---------------------------------*/
@@ -265,7 +329,7 @@ void SystemClock_Config(void)
   * @param None
   * @retval None
   */
-static void MX_ADC1_Init(void)
+void MX_ADC1_Init(void)
 {
 
   /* USER CODE BEGIN ADC1_Init 0 */
@@ -286,12 +350,12 @@ static void MX_ADC1_Init(void)
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.GainCompensation = 0;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE; // ADC_SCAN_ENABLE
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE; // DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DiscontinuousConvMode = DISABLE; // ENABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.DMAContinuousRequests = ENABLE;
@@ -333,7 +397,7 @@ static void MX_ADC1_Init(void)
   * @param None
   * @retval None
   */
-static void MX_I2C1_Init(void)
+void MX_I2C1_Init(void)
 {
 
   /* USER CODE BEGIN I2C1_Init 0 */
@@ -381,7 +445,7 @@ static void MX_I2C1_Init(void)
   * @param None
   * @retval None
   */
-static void MX_I2C2_Init(void)
+void MX_I2C2_Init(void)
 {
 
   /* USER CODE BEGIN I2C2_Init 0 */
@@ -429,7 +493,7 @@ static void MX_I2C2_Init(void)
   * @param None
   * @retval None
   */
-static void MX_LPUART1_UART_Init(void)
+void MX_LPUART1_UART_Init(void)
 {
 
   /* USER CODE BEGIN LPUART1_Init 0 */
@@ -534,7 +598,7 @@ static void MX_LPUART1_UART_Init(void)
   * @retval None
   */
 #if 0
-static void MX_USART2_UART_Init(void)
+void MX_USART2_UART_Init(void)
 {
 
   /* USER CODE BEGIN USART2_Init 0 */
@@ -584,7 +648,7 @@ static void MX_USART2_UART_Init(void)
   * @retval None
   */
 #if 0
-static void MX_USART3_UART_Init(void)
+void MX_USART3_UART_Init(void)
 {
 
   /* USER CODE BEGIN USART3_Init 0 */
@@ -633,7 +697,7 @@ static void MX_USART3_UART_Init(void)
   * @param None
   * @retval None
   */
-static void MX_UCPD1_Init(void)
+void MX_UCPD1_Init(void)
 {
 
   /* USER CODE BEGIN UCPD1_Init 0 */
@@ -712,7 +776,7 @@ static void MX_UCPD1_Init(void)
 /**
   * Enable DMA controller clock
   */
-static void MX_DMA_Init(void)
+void MX_DMA_Init(void)
 {
 
   /* DMA controller clock enable */
@@ -740,7 +804,7 @@ static void MX_DMA_Init(void)
   * @param None
   * @retval None
   */
-static void MX_GPIO_Init(void)
+void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
@@ -757,7 +821,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin|VBUS_POWER_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED_DEVICERDY_Pin|BLUETOOTH_RST_Pin|EN_EXTRAPWR_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, LED_DEVICERDY_Pin|BLUETOOTH_RST_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, EN_EXTRAPWR_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_BOARD_GPIO_Port, LED_BOARD_Pin, GPIO_PIN_RESET);
@@ -765,7 +830,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : PB_BOARD_Pin */
   GPIO_InitStruct.Pin = PB_BOARD_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(PB_BOARD_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB_POWER_Pin */
@@ -803,10 +868,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(EN_EXTRAPWR_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI0_IRQn, 3, 0);
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 3, 0);
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -816,12 +881,40 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+//
+//
+//
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if (GPIO_Pin == PB_POWER_Pin)
+	{
+		GPIO_PinState state = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
+		if (powerBtnState != state)
+		{
+			//osSemaphoreRelease(powerSemaphoreId);
+			btnStateChanged |= 0x01;
+		}
+	}
+	else if (GPIO_Pin == PB_BOARD_Pin)
+	{
+		GPIO_PinState state = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
+		if (boardBtnState != state)
+		{
+			//osSemaphoreRelease(boardSemaphoreId);
+			btnStateChanged |= 0x02;
+		}
+	}
+}
+
+
+
 /**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
   */
-static void SER_USART2_UART_Init(UART_HandleTypeDef* handle)
+void SER_UART2_Init(UART_HandleTypeDef* handle)
 {
 
   /* USER CODE BEGIN USART2_Init 0 */
@@ -869,7 +962,7 @@ static void SER_USART2_UART_Init(UART_HandleTypeDef* handle)
   * @param None
   * @retval None
   */
-static void SER_USART3_UART_Init(UART_HandleTypeDef* handle)
+void SER_UART3_Init(UART_HandleTypeDef* handle)
 {
 
   /* USER CODE BEGIN USART3_Init 0 */
@@ -912,6 +1005,14 @@ static void SER_USART3_UART_Init(UART_HandleTypeDef* handle)
 
 }
 
+void ShutdownCallback(void const *arg)
+{
+	//osTimerStop(shutdownTimerId);
+
+	if (btConnected)
+		SER_puts(&Serial3, "SHUTDOWN!!\r\n");
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -920,12 +1021,6 @@ static void SER_USART3_UART_Init(UART_HandleTypeDef* handle)
   * @param  argument: Not used
   * @retval None
   */
-
-#define MAX_RXSIZE	64
-
-char rxData[MAX_RXSIZE];
-uint8_t rxPos;
-
 
 
 /* USER CODE END Header_StartDefaultTask */
@@ -942,22 +1037,19 @@ void StartDefaultTask(void const * argument)
   // Hold PowerPin
   HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin/*|VBUS_POWER_Pin*/, GPIO_PIN_SET);
 
-  /*
-  osDelay(500);
-  HAL_GPIO_WritePin(BLUETOOTH_RST_GPIO_Port, BLUETOOTH_RST_Pin, GPIO_PIN_RESET);
-  osDelay(500);
-  HAL_GPIO_WritePin(BLUETOOTH_RST_GPIO_Port, BLUETOOTH_RST_Pin, GPIO_PIN_RESET);
-  osDelay(500);
-  */
 
+  // save latest button state
+  powerBtnState = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
+  boardBtnState = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
+
+  //
   uint32_t tickCount = HAL_GetTick();
   uint8_t ledState = 0;
-  uint8_t btConnected = 0;
-
   uint32_t voltage = adcVoltage;
 
   rxData[0] = 0;
   rxPos = 0;
+  txPos = 0;
 
   /* Infinite loop */
   for(;;)
@@ -975,26 +1067,15 @@ void StartDefaultTask(void const * argument)
     if (SER_available(&Serial2) > 0)
     {
     	int ch = SER_read(&Serial2);
-    	if (btConnected)
-    	{
-    		SER_writeByte(&Serial3, ch);
 
-    		if (ch == '\n' && voltage != adcVoltage)
-    		{
-    			//
-    			voltage = adcVoltage;
-
-				//
-				char line[32];
-				sprintf(line, "VOL: %lu\r\n", voltage);
-				SER_writeData(&Serial3, (uint8_t *)line, (int32_t)strlen(line));
-			}
-    	}
+    	//SER_writeByte(&Serie3, ch);
+    	txPos = (ch == '\r' || ch == '\n') ? 0 : txPos + 1;
     }
 
     if (SER_available(&Serial3) > 0)
     {
     	int ch = SER_read(&Serial3);
+
     	if (ch == '\r' || ch == '\n')
     	{
     		if (strncmp(rxData, "CONNECT", 7) == 0)
@@ -1004,7 +1085,6 @@ void StartDefaultTask(void const * argument)
 
     		rxData[0] = 0;
 			rxPos = 0;
-
     	}
     	else
     	{
@@ -1016,6 +1096,54 @@ void StartDefaultTask(void const * argument)
     		}
     	}
     }
+
+    if (txPos == 0 && btConnected)
+    {
+    	// update voltage
+		if (voltage != adcVoltage)
+		{
+			voltage = adcVoltage;
+
+			char line[32];
+			sprintf(line, "VOL: %lu\r\n", voltage);
+			SER_puts(&Serial3, line);
+		}
+
+		// check & update key-state
+		if (btnStateChanged & 0x01)
+		//if (osSemaphoreWait(powerSemaphoreId, 0) > 0)
+		{
+			powerBtnState = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
+			btnStateChanged &= ~0x01;
+
+			if (powerBtnState == GPIO_PIN_RESET)
+			{
+				osTimerStart(shutdownTimerId, 2000);
+			}
+			else
+			{
+				osTimerStop(shutdownTimerId);
+			}
+
+			SER_puts(&Serial3, "Power Button: ");
+			SER_puts(&Serial3, powerBtnState == GPIO_PIN_RESET ? "On\r\n" : "Off\r\n");
+
+			//osSemaphoreRelease(powerSemaphoreId);
+		}
+
+		if (btnStateChanged & 0x02)
+		//if (osSemaphoreWait(boardSemaphoreId, 0) > 0)
+		{
+			boardBtnState = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
+			btnStateChanged &= ~0x02;
+
+			SER_puts(&Serial3, "Board Button: ");
+			SER_puts(&Serial3, boardBtnState == GPIO_PIN_RESET ? "Off\r\n" : "On\r\n");
+
+			//osSemaphoreRelease(boardSemaphoreId);
+		}
+    }
+
   }
   /* USER CODE END 5 */
 }

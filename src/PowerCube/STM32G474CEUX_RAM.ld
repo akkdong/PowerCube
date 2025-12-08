@@ -7,6 +7,7 @@
 **
 ** @brief       : Linker script for STM32G474CEUx Device from STM32G4 series
 **                      512KBytes FLASH
+**                      32KBytes CCMSRAM
 **                      128KBytes RAM
 **
 **                Set heap size, stack size and stack location according
@@ -44,6 +45,7 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 /* Memories definition */
 MEMORY
 {
+  CCMSRAM    (xrw)    : ORIGIN = 0x10000000,   LENGTH = 32K
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 128K
   FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 512K
 }
@@ -148,6 +150,25 @@ SECTIONS
     _edata = .;        /* define a global symbol at data end */
 
   } >RAM
+
+  _siccmsram = LOADADDR(.ccmsram);
+
+  /* CCM-SRAM section
+  *
+  * IMPORTANT NOTE!
+  * If initialized variables will be placed in this section,
+  * the startup code needs to be modified to copy the init-values.
+  */
+  .ccmsram :
+  {
+    . = ALIGN(4);
+    _sccmsram = .;       /* create a global symbol at ccmsram start */
+    *(.ccmsram)
+    *(.ccmsram*)
+
+    . = ALIGN(4);
+    _eccmsram = .;       /* create a global symbol at ccmsram end */
+  } >CCMSRAM AT> RAM
 
   /* Uninitialized data section into "RAM" Ram type memory */
   . = ALIGN(4);

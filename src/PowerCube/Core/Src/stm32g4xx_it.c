@@ -27,7 +27,7 @@
 #include "gui_api.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "Serial.h"
+//#include "Serial.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,8 +66,12 @@ extern DMA_HandleTypeDef hdma_adc1;
 extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
 /* USER CODE BEGIN EV */
+#if ENABLE_UART2
 extern SER_HandleTypeDef Serial2;
+#endif
+#if ENABLE_UART3
 extern SER_HandleTypeDef Serial3;
+#endif
 /* USER CODE END EV */
 
 /******************************************************************************/
