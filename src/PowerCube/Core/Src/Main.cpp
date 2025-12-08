@@ -32,6 +32,7 @@
 #include "I2C.H"
 #include "BMP280.h"
 #include "INA226.h"
+#include "HUSB238.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -159,11 +160,15 @@ void AdcTask(void const * argument)
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&adcValue, 1);
 
 	INA226 ina266(i2c1);
+	HUSB238 husb238(i2c1);
+
+	ina266.begin();
 	ina266.setAverage(INA226_64_SAMPLES);
 	//ina266.setMaxCurrentShunt(17, 0.02); // 0.1: 0.85  --> 0.02 4.25
 	ina266.configure(0.02);
 
 	uint32_t lastTick = HAL_GetTick();
+	bool husb238Attached = false;
 
 	while (1)
 	{
@@ -173,6 +178,50 @@ void AdcTask(void const * argument)
 			float acqVoltage = (float)adcValue * 3300 / 0x0FFF;
 			// acqVoltage = adcVoltage * 40.2 / 240.2;
 			adcVoltage = acqVoltage * 240.2 / 40.2;
+
+			if (adcVoltage > 1000 && !husb238Attached)
+			{
+				HUSB238::Capability *pCap = husb238.getCapabilities();
+				char line[32];
+
+				sprintf(line, "5V : %u\r\n", pCap->ma_5V);
+				Serial3.puts(line);
+				sprintf(line, "9V : %u\r\n", pCap->ma_9V);
+				Serial3.puts(line);
+				sprintf(line, "12V : %u\r\n", pCap->ma_12V);
+				Serial3.puts(line);
+				sprintf(line, "15V : %u\r\n", pCap->ma_15V);
+				Serial3.puts(line);
+				sprintf(line, "18V : %u\r\n", pCap->ma_18V);
+				Serial3.puts(line);
+				sprintf(line, "20V : %u\r\n", pCap->ma_20V);
+				Serial3.puts(line);
+
+				husb238Attached = true;
+
+				//
+				husb238.updateStatus();
+				uint8_t v = husb238.getActiveVoltage(false);
+				uint16_t c = husb238.getActiveCurrent(false);
+				sprintf(line, ">> %u V, %u mA\r\n", v, c);
+				Serial3.puts(line);
+
+				//
+#if 0
+				osDelay(1000);
+				husb238.setVoltage(HUSB238::PDO_9V);
+				osDelay(1000);
+				husb238.updateStatus();
+				v = husb238.getActiveVoltage(false);
+				c = husb238.getActiveCurrent(false);
+				sprintf(line, "<< %u V, %u mA\r\n", v, c);
+				Serial3.puts(line);
+#endif
+			}
+			else if (adcVoltage < 1000 && husb238Attached)
+			{
+				husb238Attached = false;
+			}
 
 			//
 			vbusVoltage = (uint32_t)ina266.getBusVoltage_mV();
@@ -1134,7 +1183,7 @@ void StartDefaultTask(void const * argument)
 			voltage = adcVoltage;
 
 			char line[32];
-			sprintf(line, "VBUS_i", voltage);
+			sprintf(line, "VBUS_i: %lu\r\n", voltage);
 			Serial3.puts(line);
 
 			sprintf(line, "T: %d, P: %d\r\n", (int)temperature, (int)pressure);
