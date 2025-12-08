@@ -30,6 +30,8 @@
 
 #include "HardwareSerial.h"
 #include "I2C.H"
+#include "BMP280.h"
+#include "INA226.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -148,10 +150,18 @@ osTimerDef(ShutdownTimer, ShutdownCallback);
 uint32_t adcValue = 0;
 uint32_t adcVoltage = 0; // mV
 
+uint32_t vbusVoltage = 0;
+uint32_t vbusCurrent = 0;
+
 void AdcTask(void const * argument)
 {
 	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&adcValue, 1);
+
+	INA226 ina266(i2c1);
+	ina266.setAverage(INA226_64_SAMPLES);
+	//ina266.setMaxCurrentShunt(17, 0.02); // 0.1: 0.85  --> 0.02 4.25
+	ina266.configure(0.02);
 
 	uint32_t lastTick = HAL_GetTick();
 
@@ -163,6 +173,10 @@ void AdcTask(void const * argument)
 			float acqVoltage = (float)adcValue * 3300 / 0x0FFF;
 			// acqVoltage = adcVoltage * 40.2 / 240.2;
 			adcVoltage = acqVoltage * 240.2 / 40.2;
+
+			//
+			vbusVoltage = (uint32_t)ina266.getBusVoltage_mV();
+			vbusCurrent = (uint32_t)ina266.getCurrent_mA();
 
 			//
 			lastTick = HAL_GetTick();
@@ -1011,7 +1025,7 @@ void StartDefaultTask(void const * argument)
   // DEVICEs on
   HAL_GPIO_WritePin(GPIOB, EN_EXTRAPWR_Pin, GPIO_PIN_RESET);
   // Hold PowerPin
-  HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin/*|VBUS_POWER_Pin*/, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin|VBUS_POWER_Pin, GPIO_PIN_SET);
 
 #if 0
   {
@@ -1032,6 +1046,18 @@ void StartDefaultTask(void const * argument)
   }
 #endif
 
+  Bme280TwoWire baro;
+  baro.begin(Bme280TwoWireAddress::Secondary, &i2c2);
+
+  Bme280Settings powerBaroSet = {
+	.mode = Bme280Mode::Normal,
+	.temperatureOversampling = Bme280Oversampling::X2,
+	.pressureOversampling = Bme280Oversampling::X16,
+	.humidityOversampling = Bme280Oversampling::X2,
+	.filter = Bme280Filter::X16,
+	.standbyTime = Bme280StandbyTime::Ms0_5
+  };
+  baro.setSettings(powerBaroSet);
 
   // save latest button state
   powerBtnState = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
@@ -1041,6 +1067,9 @@ void StartDefaultTask(void const * argument)
   uint32_t tickCount = HAL_GetTick();
   uint8_t ledState = 0;
   uint32_t voltage = adcVoltage;
+  uint32_t lastVBusVoltage = vbusVoltage;
+  uint32_t lastVBusCurrent = vbusCurrent;
+  float temperature, pressure;
 
   rxData[0] = 0;
   rxPos = 0;
@@ -1056,13 +1085,18 @@ void StartDefaultTask(void const * argument)
       HAL_GPIO_WritePin(GPIOB, LED_DEVICERDY_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
       HAL_GPIO_WritePin(LED_BOARD_GPIO_Port, LED_BOARD_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
       tickCount = HAL_GetTick();
+
+      temperature = baro.getTemperature();
+      pressure = baro.getPressure();
     }
 
     //
     if (Serial2.available() > 0)
     {
     	int ch = Serial2.read();
+    	/*
     	Serial3.write(ch);
+    	*/
 
     	txPos = (/*ch == '\r' ||*/ ch == '\n') ? 0 : txPos + 1;
     }
@@ -1100,7 +1134,20 @@ void StartDefaultTask(void const * argument)
 			voltage = adcVoltage;
 
 			char line[32];
-			sprintf(line, "VOL: %lu\r\n", voltage);
+			sprintf(line, "VBUS_i", voltage);
+			Serial3.puts(line);
+
+			sprintf(line, "T: %d, P: %d\r\n", (int)temperature, (int)pressure);
+			Serial3.puts(line);
+		}
+
+		if (lastVBusVoltage != vbusVoltage)
+		{
+			lastVBusVoltage = vbusVoltage;
+			lastVBusCurrent = vbusCurrent;
+
+			char line[32];
+			sprintf(line, "VBUS_o: %lu, %lu\r\n", lastVBusVoltage, lastVBusCurrent);
 			Serial3.puts(line);
 		}
 

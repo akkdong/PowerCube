@@ -8,217 +8,213 @@
 #ifndef BSP_INC_INA226_H_
 #define BSP_INC_INA226_H_
 
-#include "stm32g4xx_hal.h"
-#include "stm32g4xx_hal_i2c.h"
+#include "I2C.h"
 
-#ifdef __cplusplus
-#define extern "C" {
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+
+//  set by setAlertRegister
+#define INA226_SHUNT_OVER_VOLTAGE         0x8000
+#define INA226_SHUNT_UNDER_VOLTAGE        0x4000
+#define INA226_BUS_OVER_VOLTAGE           0x2000
+#define INA226_BUS_UNDER_VOLTAGE          0x1000
+#define INA226_POWER_OVER_LIMIT           0x0800
+#define INA226_CONVERSION_READY           0x0400
+
+
+//  returned by getAlertFlag
+#define INA226_ALERT_FUNCTION_FLAG        0x0010
+#define INA226_CONVERSION_READY_FLAG      0x0008
+#define INA226_MATH_OVERFLOW_FLAG         0x0004
+#define INA226_ALERT_POLARITY_FLAG        0x0002
+#define INA226_ALERT_LATCH_ENABLE_FLAG    0x0001
+
+
+//  returned by setMaxCurrentShunt
+#define INA226_ERR_NONE                   0x0000
+#define INA226_ERR_SHUNTVOLTAGE_HIGH      0x8000
+#define INA226_ERR_MAXCURRENT_LOW         0x8001
+#define INA226_ERR_SHUNT_LOW              0x8002
+#define INA226_ERR_NORMALIZE_FAILED       0x8003
+
+//  See issue #26
+#ifndef INA226_MINIMAL_SHUNT_OHM
+#define INA226_MINIMAL_SHUNT_OHM          0.001
 #endif
 
+#define INA226_MAX_WAIT_MS                600   //  millis
 
-#ifndef INA226_ADDRESS
-#define INA226_ADDRESS				0x80
-#endif
+#define INA226_MAX_SHUNT_VOLTAGE          (81.92 / 1000)
 
-#define INA226_CALIB_VAL			1024
-#define INA226_CURRENTLSB			0.5F // mA/bit
-#define INA226_CURRENTLSB_INV		1/INA226_CURRENTLSB // bit/mA
-#define INA226_POWERLSB_INV			1/(INA226_CURRENTLSB*25) // bit/mW
-#define INA226_I2CTIMEOUT			10
 
-#define INA226_CONFIG				0x00 // Configuration Register (R/W)
-#define INA226_SHUNTV				0x01 // Shunt Voltage (R)
-#define INA226_BUSV					0x02 // Bus Voltage (R)
-#define INA226_POWER				0x03 // Power (R)
-#define INA226_CURRENT				0x04 // Current (R)
-#define INA226_CALIB				0x05 // Calibration (R/W)
-#define INA226_MASK					0x06 // Mask/Enable (R/W)
-#define INA226_ALERTL				0x07 // Alert Limit (R/W)
-#define INA226_MANUF_ID				0xFE // Manufacturer ID (R)
-#define INA226_DIE_ID				0xFF // Die ID (R)
+//  for setAverage() and getAverage()
+enum ina226_average_enum {
+    INA226_1_SAMPLE     = 0,
+    INA226_4_SAMPLES    = 1,
+    INA226_16_SAMPLES   = 2,
+    INA226_64_SAMPLES   = 3,
+    INA226_128_SAMPLES  = 4,
+    INA226_256_SAMPLES  = 5,
+    INA226_512_SAMPLES  = 6,
+    INA226_1024_SAMPLES = 7
+};
 
-#define INA226_MODE_POWER_DOWN			(0<<0) // Power-Down
-#define INA226_MODE_TRIG_SHUNT_VOLTAGE	(1<<0) // Shunt Voltage, Triggered
-#define INA226_MODE_TRIG_BUS_VOLTAGE	(2<<0) // Bus Voltage, Triggered
-#define INA226_MODE_TRIG_SHUNT_AND_BUS	(3<<0) // Shunt and Bus, Triggered
-#define INA226_MODE_POWER_DOWN2			(4<<0) // Power-Down
-#define INA226_MODE_CONT_SHUNT_VOLTAGE	(5<<0) // Shunt Voltage, Continuous
-#define INA226_MODE_CONT_BUS_VOLTAGE	(6<<0) // Bus Voltage, Continuous
-#define INA226_MODE_CONT_SHUNT_AND_BUS	(7<<0) // Shunt and Bus, Continuous
 
-// Shunt Voltage Conversion Time
-#define INA226_VSH_140uS			(0<<3)
-#define INA226_VSH_204uS			(1<<3)
-#define INA226_VSH_332uS			(2<<3)
-#define INA226_VSH_588uS			(3<<3)
-#define INA226_VSH_1100uS			(4<<3)
-#define INA226_VSH_2116uS			(5<<3)
-#define INA226_VSH_4156uS			(6<<3)
-#define INA226_VSH_8244uS			(7<<3)
+//  for BVCT and SVCT conversion timing.
+enum ina226_timing_enum {
+    INA226_140_us  = 0,
+    INA226_204_us  = 1,
+    INA226_332_us  = 2,
+    INA226_588_us  = 3,
+    INA226_1100_us = 4,
+    INA226_2100_us = 5,
+    INA226_4200_us = 6,
+    INA226_8300_us = 7
+};
 
-// Bus Voltage Conversion Time (VBUS CT Bit Settings[6-8])
-#define INA226_VBUS_140uS			(0<<6)
-#define INA226_VBUS_204uS			(1<<6)
-#define INA226_VBUS_332uS			(2<<6)
-#define INA226_VBUS_588uS			(3<<6)
-#define INA226_VBUS_1100uS			(4<<6)
-#define INA226_VBUS_2116uS			(5<<6)
-#define INA226_VBUS_4156uS			(6<<6)
-#define INA226_VBUS_8244uS			(7<<6)
 
-// Averaging Mode (AVG Bit Settings[9-11])
-#define INA226_AVG_1				(0<<9)
-#define INA226_AVG_4				(1<<9)
-#define INA226_AVG_16				(2<<9)
-#define INA226_AVG_64				(3<<9)
-#define INA226_AVG_128				(4<<9)
-#define INA226_AVG_256				(5<<9)
-#define INA226_AVG_512				(6<<9)
-#define INA226_AVG_1024				(7<<9)
+//  ALERT Pin Polarity definition
+enum ina226_alert_pin_polarity_enum {
+    INA226_ACTIVE_LOW  = 0,
+    INA226_ACTIVE_HIGH = 1
+};
 
-// Reset Bit (RST bit [15])
-#define INA226_RESET_ACTIVE			(1<<15)
-#define INA226_RESET_INACTIVE		(0<<15)
 
-// Mask/Enable Register
-#define INA226_MER_SOL				(1<<15) // Shunt Voltage Over-Voltage
-#define INA226_MER_SUL				(1<<14) // Shunt Voltage Under-Voltage
-#define INA226_MER_BOL				(1<<13) // Bus Voltagee Over-Voltage
-#define INA226_MER_BUL				(1<<12) // Bus Voltage Under-Voltage
-#define INA226_MER_POL				(1<<11) // Power Over-Limit
-#define INA226_MER_CNVR				(1<<10) // Conversion Ready
-#define INA226_MER_AFF				(1<<4)  // Alert Function Flag
-#define INA226_MER_CVRF				(1<<3)  // Conversion Ready Flag
-#define INA226_MER_OVF				(1<<2)  // Math Overflow Flag
-#define INA226_MER_APOL				(1<<1)  // Alert Polarity Bit
-#define INA226_MER_LEN				(1<<0)  // Alert Latch Enable
-
-#define INA226_MANUF_ID_DEFAULT		0x5449
-#define INA226_DIE_ID_DEFAULT		0x2260
+//  ALERT Pin Latch definition
+enum ina226_alert_latch_enum {
+    INA226_LATCH_TRANSPARENT = 0,
+    INA226_LATCH_ENABLED     = 1
+};
 
 
 
-float INA226_getBusV(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-float INA226_getCurrent(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-float INA226_getPower(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-
-uint8_t INA226_setConfig(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress, uint16_t ConfigWord);
-uint16_t INA226_getConfig(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-uint16_t INA226_getShuntV(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-uint16_t INA226_getBusVReg(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-uint16_t INA226_getPowerReg(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-uint8_t INA226_setCalibrationReg(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress, uint16_t ConfigWord);
-uint16_t INA226_getCalibrationReg(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-uint16_t INA226_getCurrentReg(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-uint16_t INA226_getManufID(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-uint16_t INA226_getDieID(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-uint8_t INA226_setMaskEnable(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress, uint16_t ConfigWord);
-uint16_t INA226_getMaskEnable(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-uint8_t INA226_setAlertLimit(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress, uint16_t ConfigWord);
-uint16_t INA226_getAlertLimit(I2C_HandleTypeDef *I2CHandler, uint16_t DevAddress);
-
-
-
-//
-//
+////////////////////////////////////////////////////////////////////////////////////////
 //
 
-typedef enum {
-	OK=0,
-	FAIL=-1,
-    INA226_TI_ID_MISMATCH = -2,
-    INA226_DIE_ID_MISMATCH =-3,
-    CONFIG_ERROR = -4,
-    I2C_TRANSMISSION_ERROR = -5,
-    BAD_PARAMETER = -6,
-    NOT_INITIALIZED = -7,
-    INVALID_I2C_ADDRESS
-} INA226_Status;
-
-typedef struct INA226_HandleTypeDef
+class INA226
 {
-	I2C_HandleTypeDef *pHandle;
+public:
+	INA226(I2CMaster &i2c, uint16_t addr = 0x40);
 
-	uint8_t     mInitialized;
-	uint8_t  mI2C_Address;
-	uint16_t mConfigRegister;        	// local copy from the INA226
-	uint16_t mCalibrationValue;        	// local copy from the INA226
-	int32_t  mCurrentMicroAmpsPerBit; 	// This is the Current_LSB, as defined in the INA266 spec
-	int32_t  mPowerMicroWattPerBit;
-
-} INA226_HandleTypeDef;
+public:
+	bool     begin();
+	bool     isConnected();
+	uint8_t  getAddress();
 
 
-enum eOperatingMode {
-//	Shutdown					 = 0,
-	ShuntVoltageTriggered        = 1,
-	BusVoltageTriggered          = 2,
-	ShuntAndBusTriggered         = 3,
-	Shutdown                     = 4,
-	ShuntVoltageContinuous       = 5,
-	BusVoltageContinuous         = 6,
-	ShuntAndBusVoltageContinuous = 7	 //default
+	//  Core functions
+	float    getBusVoltage();       //  Volt
+	float    getShuntVoltage();     //  Volt
+	float    getCurrent();          //  Ampere
+	float    getPower();            //  Watt
+	//  See #35
+	bool     isConversionReady();   //  conversion ready flag is set.
+	bool     waitConversionReady(uint32_t timeout = INA226_MAX_WAIT_MS);
+
+
+	//  Scale helpers milli range
+	float    getBusVoltage_mV()   { return getBusVoltage()   * 1e3; };
+	float    getShuntVoltage_mV() { return getShuntVoltage() * 1e3; };
+	float    getCurrent_mA()      { return getCurrent()      * 1e3; };
+	float    getPower_mW()        { return getPower()        * 1e3; };
+	//  Scale helpers micro range
+	float    getBusVoltage_uV()   { return getBusVoltage()   * 1e6; };
+	float    getShuntVoltage_uV() { return getShuntVoltage() * 1e6; };
+	float    getCurrent_uA()      { return getCurrent()      * 1e6; };
+	float    getPower_uW()        { return getPower()        * 1e6; };
+
+
+	//  Configuration
+	bool     reset();
+	bool     setAverage(uint8_t avg = INA226_1_SAMPLE);
+	uint8_t  getAverage();
+	bool     setBusVoltageConversionTime(uint8_t bvct = INA226_1100_us);
+	uint8_t  getBusVoltageConversionTime();
+	bool     setShuntVoltageConversionTime(uint8_t svct = INA226_1100_us);
+	uint8_t  getShuntVoltageConversionTime();
+
+
+	//  Calibration
+	//  mandatory to set these values!
+	//  datasheet limit == 81.92 mV;
+	//    to prevent math overflow 0.02 mV is subtracted.
+	//  shunt * maxCurrent <= 81.9 mV otherwise returns INA226_ERR_SHUNTVOLTAGE_HIGH
+	//  maxCurrent >= 0.001           otherwise returns INA226_ERR_MAXCURRENT_LOW
+	//  shunt      >= 0.001           otherwise returns INA226_ERR_SHUNT_LOW
+	int      setMaxCurrentShunt(float maxCurrent = 20.0, float shunt = 0.002, bool normalize = true);
+	//  configure provides full user control, not requiring call to setMaxCurrentShunt(args) function
+	int      configure(float shunt = 0.1, float current_LSB_mA = 0.1, float current_zero_offset_mA = 0, uint16_t bus_V_scaling_e4 = 10000);
+	bool     isCalibrated()     { return _current_LSB != 0.0; };
+
+	//  These functions return zero if not calibrated!
+	float    getCurrentLSB()    { return _current_LSB;       };
+	float    getCurrentLSB_mA() { return _current_LSB * 1e3; };
+	float    getCurrentLSB_uA() { return _current_LSB * 1e6; };
+	float    getShunt()         { return _shunt;             };
+	float    getMaxCurrent()    { return _maxCurrent;        };
+
+
+	//  Operating mode
+	bool     setMode(uint8_t mode = 7);  //  default ModeShuntBusContinuous
+	uint8_t  getMode();
+	bool     shutDown()                  { return setMode(0); };
+	bool     setModeShuntTrigger()       { return setMode(1); };
+	bool     setModeBusTrigger()         { return setMode(2); };
+	bool     setModeShuntBusTrigger()    { return setMode(3); };
+	bool     setModeShuntContinuous()    { return setMode(5); };
+	bool     setModeBusContinuous()      { return setMode(6); };
+	bool     setModeShuntBusContinuous() { return setMode(7); };  //  default.
+
+
+	//  ALERT REGISTER
+	//  (not tested)
+	bool     setAlertRegister(uint16_t mask);
+	uint16_t getAlertRegister();
+	bool     setAlertLatchEnable(bool latch = false);
+	bool     getAlertLatchEnable();
+	bool     setAlertPolarity(bool inverted = false);
+	bool     getAlertPolarity();
+
+	//  ALERT LIMIT
+	//  (not tested)
+	bool     setAlertLimit(uint16_t limit);
+	uint16_t getAlertLimit();
+
+
+	//  Meta information
+	//
+	//                               typical value
+	uint16_t getManufacturerID();  //  0x5449
+	uint16_t getDieID();           //  0x2260
+
+
+	//  DEBUG
+	uint16_t getRegister(uint8_t reg) { return _readRegister(reg); };
+
+	//
+	//  ERROR HANDLING
+	//
+	int      getLastError();
+
+
+protected:
+	uint16_t _readRegister(uint8_t reg);
+	uint16_t _writeRegister(uint8_t reg, uint16_t value);
+
+protected:
+	I2CMaster &m_i2c;
+	uint16_t m_addr;
+
+	float    _current_LSB;
+	float    _shunt;
+	float    _maxCurrent;
+	float    _current_zero_offset = 0;
+	uint16_t _bus_V_scaling_e4 = 10000;
+
+	int       _error;
 };
-
-enum eAlertTrigger {
-	ClearTriggers                = 0x0000, //default
-	ShuntVoltageOverLimit        = 0x8000,
-	ShuntVoltageUnderLimit       = 0x4000,
-	BusVoltageOverLimit          = 0x2000,
-	BusVoltageUnderLimit         = 0x1000,
-	PowerOverLimit               = 0x0800,
-	ConversionReady              = 0x0400
-};
-
-enum eAlertTriggerCause {
-	Unknown=0,
-	AlertFunctionFlag            = 0x10,
-	ConversionReadyFlag          = 0x08,
-	MathOverflowFlag             = 0x04,
-	AlertPolarityBit             = 0x02
-};
-
-
-void INA266_init(I2C_HandleTypeDef *pHandle);
-
-void INA226_Constructor(INA226_HandleTypeDef *);
-INA226_Status INA226_CheckI2cAddress(uint8_t aI2C_Address);
-
-//Resets the INA226 and configures it according to the supplied parameters - should be called first.
-//status AutoFox_INA226_Init(uint8_t aI2C_Address=0x40, double aShuntResistor_Ohms=0.1, double aMaxCurrent_Amps=3.2767);
-INA226_Status INA226_Init(INA226_HandleTypeDef *,uint8_t aI2C_Address, double aShuntResistor_Ohms, double aMaxCurrent_Amps);
-
-int32_t INA226_GetShuntVoltage_uV(INA226_HandleTypeDef *);
-int32_t INA226_GetBusVoltage_uV(INA226_HandleTypeDef *);
-int32_t INA226_GetCurrent_uA(INA226_HandleTypeDef *);
-int32_t INA226_GetPower_uW(INA226_HandleTypeDef *);
-
-INA226_Status INA226_SetOperatingMode(INA226_HandleTypeDef *,enum eOperatingMode aOpMode);
-INA226_Status INA226_Hibernate(INA226_HandleTypeDef *); //Enters a very low power mode, no voltage measurements
-INA226_Status INA226_Wakeup(INA226_HandleTypeDef *);    //Wake-up and enter the last operating mode
-
-//The trigger value is in microwatts or microvolts, depending on the trigger
-INA226_Status INA226_ConfigureAlertPinTrigger(INA226_HandleTypeDef *,enum eAlertTrigger aAlertTrigger, int32_t aValue, uint8_t aLatching);
-//status AutoFox_INA226_ResetAlertPin(INA226_HandleTypeDef *);
-INA226_Status INA226_ResetAlertPin(INA226_HandleTypeDef *,enum  eAlertTriggerCause* aAlertTriggerCause_p ); //provides feedback as to what caused the alert
-
-//The parameters for the two functions below are indices into the tables defined in the INA226 spec
-//These tables are copied below for your information (caNumSamplesAveraged & caVoltageConvTimeMicroSecs)
-INA226_Status INA226_ConfigureVoltageConversionTime(INA226_HandleTypeDef *,int aIndexToConversionTimeTable);
-INA226_Status INA226_ConfigureNumSampleAveraging(INA226_HandleTypeDef *,int aIndexToSampleAverageTable);
-INA226_Status INA226_Debug_GetConfigRegister(INA226_HandleTypeDef *,uint16_t* aConfigReg_p);
-
-//Private functions
-
-INA226_Status INA226_WriteRegister(INA226_HandleTypeDef *,uint8_t aRegister, uint16_t aValue);
-INA226_Status NA226_ReadRegister(INA226_HandleTypeDef *,uint8_t aRegister, uint16_t* aValue_p);
-INA226_Status INA226_setupCalibration(INA226_HandleTypeDef *,double aShuntResistor_Ohms, double aMaxCurrent_Amps);
 
 
 
 #endif /* BSP_INC_INA226_H_ */
-
-
-#ifdef __cplusplus
-}
-#endif
