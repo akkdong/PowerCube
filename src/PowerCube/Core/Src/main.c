@@ -24,10 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "Serial.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,7 +39,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#if 0
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -57,50 +54,6 @@ UART_HandleTypeDef huart3;
 
 osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
-#else
-
-ADC_HandleTypeDef hadc1;
-DMA_HandleTypeDef hdma_adc1;
-
-I2C_HandleTypeDef hi2c1;
-I2C_HandleTypeDef hi2c2;
-
-/*
-UART_HandleTypeDef huart2;
-UART_HandleTypeDef huart3;
-*/
-
-SER_HandleTypeDef Serial2;
-SER_HandleTypeDef Serial3;
-
-GPIO_PinState powerBtnState;
-GPIO_PinState boardBtnState;
-uint8_t btnStateChanged = 0; // BIT 0: Power, BIT 1: Board
-
-#define MAX_RXSIZE	64
-
-char rxData[MAX_RXSIZE];
-uint8_t rxPos, txPos;
-
-uint8_t btConnected = 0;
-
-
-
-osThreadId defaultTaskHandle;
-osThreadId adcTaskHandle;
-
-osSemaphoreId powerSemaphoreId;
-osSemaphoreId boardSemaphoreId;
-
-osTimerId shutdownTimerId;
-
-
-osSemaphoreDef(PowerSemaphore);
-osSemaphoreDef(BoardSemaphore);
-
-
-
-#endif
 
 /* USER CODE END PV */
 
@@ -112,56 +65,17 @@ void MX_LPUART1_UART_Init(void);
 void MX_UCPD1_Init(void);
 void MX_I2C1_Init(void);
 void MX_I2C2_Init(void);
-/*
 void MX_USART2_UART_Init(void);
-*/
 void MX_ADC1_Init(void);
-/*
 void MX_USART3_UART_Init(void);
-*/
 void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
-void SER_UART2_Init(UART_HandleTypeDef* handle);
-void SER_UART3_Init(UART_HandleTypeDef* handle);
-
-void ShutdownCallback(void const *arg);
-
-
-osTimerDef(ShutdownTimer, ShutdownCallback);
-
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-uint32_t adcValue = 0;
-uint32_t adcVoltage = 0; // mV
-
-void AdcTask(void const * argument)
-{
-	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&adcValue, 1);
-
-	uint32_t lastTick = HAL_GetTick();
-
-	while (1)
-	{
-		if (HAL_GetTick() - lastTick > 1000)
-		{
-			// adcValue : 0x0FFF = adcVoltage : 3300 --> acqVoltage = adcValue * 3300 / 0x0FFF
-			float acqVoltage = (float)adcValue * 3300 / 0x0FFF;
-			// acqVoltage = adcVoltage * 40.2 / 240.2;
-			adcVoltage = acqVoltage * 240.2 / 40.2;
-
-			//
-			lastTick = HAL_GetTick();
-		}
-
-		//
-	}
-}
 
 /* USER CODE END 0 */
 
@@ -169,11 +83,11 @@ void AdcTask(void const * argument)
   * @brief  The application entry point.
   * @retval int
   */
-int main_OBSOLETE(void)
+int MAIN_OBSOLETE(void)
 {
 
   /* USER CODE BEGIN 1 */
-#if 0
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -203,35 +117,10 @@ int main_OBSOLETE(void)
   MX_ADC1_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-#else
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
 
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_LPUART1_UART_Init();
-  MX_UCPD1_Init();
-  MX_I2C1_Init();
-  MX_I2C2_Init();
-  MX_ADC1_Init();
-
-  //
-  SER_begin(&Serial2, SER_UART2_Init, USART2_IRQn);
-  SER_begin(&Serial3, SER_UART3_Init, USART3_IRQn);
-
-  //
-  powerSemaphoreId = osSemaphoreCreate(osSemaphore(PowerSemaphore), 1);
-  boardSemaphoreId = osSemaphoreCreate(osSemaphore(BoardSemaphore), 1);
-
-  shutdownTimerId = osTimerCreate(osTimer(ShutdownTimer), osTimerOnce, 0);
-#endif
   /* USER CODE END 2 */
 
-  /* USBPD initialisation ---------------------------------*/
+  /* USBPD initialization ---------------------------------*/
   MX_USBPD_Init();
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -257,8 +146,6 @@ int main_OBSOLETE(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  osThreadDef(adcTask, AdcTask, osPriorityNormal, 0, 128);
-  adcTaskHandle = osThreadCreate(osThread(adcTask), NULL);
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -597,7 +484,6 @@ void MX_LPUART1_UART_Init(void)
   * @param None
   * @retval None
   */
-#if 0
 void MX_USART2_UART_Init(void)
 {
 
@@ -640,14 +526,12 @@ void MX_USART2_UART_Init(void)
   /* USER CODE END USART2_Init 2 */
 
 }
-#endif
 
 /**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
   */
-#if 0
 void MX_USART3_UART_Init(void)
 {
 
@@ -690,7 +574,6 @@ void MX_USART3_UART_Init(void)
   /* USER CODE END USART3_Init 2 */
 
 }
-#endif
 
 /**
   * @brief UCPD1 Initialization Function
@@ -881,138 +764,6 @@ void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-//
-//
-//
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-	if (GPIO_Pin == PB_POWER_Pin)
-	{
-		GPIO_PinState state = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
-		if (powerBtnState != state)
-		{
-			//osSemaphoreRelease(powerSemaphoreId);
-			btnStateChanged |= 0x01;
-		}
-	}
-	else if (GPIO_Pin == PB_BOARD_Pin)
-	{
-		GPIO_PinState state = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
-		if (boardBtnState != state)
-		{
-			//osSemaphoreRelease(boardSemaphoreId);
-			btnStateChanged |= 0x02;
-		}
-	}
-}
-
-
-
-/**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-void SER_UART2_Init(UART_HandleTypeDef* handle)
-{
-
-  /* USER CODE BEGIN USART2_Init 0 */
-
-  /* USER CODE END USART2_Init 0 */
-
-  /* USER CODE BEGIN USART2_Init 1 */
-
-  /* USER CODE END USART2_Init 1 */
-  handle->Instance = USART2;
-  handle->Init.BaudRate = 9600;
-  handle->Init.WordLength = UART_WORDLENGTH_8B;
-  handle->Init.StopBits = UART_STOPBITS_1;
-  handle->Init.Parity = UART_PARITY_NONE;
-  handle->Init.Mode = UART_MODE_TX_RX;
-  handle->Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  handle->Init.OverSampling = UART_OVERSAMPLING_16;
-  handle->Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  handle->Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  handle->AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(handle) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetTxFifoThreshold(handle, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetRxFifoThreshold(handle, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_DisableFifoMode(handle) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
-
-  /* USER CODE END USART2_Init 2 */
-
-}
-
-/**
-  * @brief USART3 Initialization Function
-  * @param None
-  * @retval None
-  */
-void SER_UART3_Init(UART_HandleTypeDef* handle)
-{
-
-  /* USER CODE BEGIN USART3_Init 0 */
-
-  /* USER CODE END USART3_Init 0 */
-
-  /* USER CODE BEGIN USART3_Init 1 */
-
-  /* USER CODE END USART3_Init 1 */
-  handle->Instance = USART3;
-  handle->Init.BaudRate = 9600;
-  handle->Init.WordLength = UART_WORDLENGTH_8B;
-  handle->Init.StopBits = UART_STOPBITS_1;
-  handle->Init.Parity = UART_PARITY_NONE;
-  handle->Init.Mode = UART_MODE_TX_RX;
-  handle->Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  handle->Init.OverSampling = UART_OVERSAMPLING_16;
-  handle->Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  handle->Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  handle->AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(handle) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetTxFifoThreshold(handle, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetRxFifoThreshold(handle, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_DisableFifoMode(handle) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART3_Init 2 */
-
-  /* USER CODE END USART3_Init 2 */
-
-}
-
-void ShutdownCallback(void const *arg)
-{
-	//osTimerStop(shutdownTimerId);
-
-	if (btConnected)
-		SER_puts(&Serial3, "SHUTDOWN!!\r\n");
-}
-
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -1030,121 +781,11 @@ void StartDefaultTask(void const * argument)
   MX_USB_Device_Init();
   /* USER CODE BEGIN 5 */
 
-  // LED on
-  HAL_GPIO_WritePin(GPIOB, LED_DEVICERDY_Pin, GPIO_PIN_RESET);
-  // DEVICEs on
-  HAL_GPIO_WritePin(GPIOB, EN_EXTRAPWR_Pin, GPIO_PIN_RESET);
-  // Hold PowerPin
-  HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin/*|VBUS_POWER_Pin*/, GPIO_PIN_SET);
-
-
-  // save latest button state
-  powerBtnState = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
-  boardBtnState = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
-
-  //
-  uint32_t tickCount = HAL_GetTick();
-  uint8_t ledState = 0;
-  uint32_t voltage = adcVoltage;
-
-  rxData[0] = 0;
-  rxPos = 0;
-  txPos = 0;
-
   /* Infinite loop */
   for(;;)
   {
-    //
-    if (HAL_GetTick() - tickCount > 500)
-    {
-      ledState = 1 - ledState;
-      HAL_GPIO_WritePin(GPIOB, LED_DEVICERDY_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(LED_BOARD_GPIO_Port, LED_BOARD_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
-      tickCount = HAL_GetTick();
-    }
-
-    //
-    if (SER_available(&Serial2) > 0)
-    {
-    	int ch = SER_read(&Serial2);
-
-    	//SER_writeByte(&Serie3, ch);
-    	txPos = (ch == '\r' || ch == '\n') ? 0 : txPos + 1;
-    }
-
-    if (SER_available(&Serial3) > 0)
-    {
-    	int ch = SER_read(&Serial3);
-
-    	if (ch == '\r' || ch == '\n')
-    	{
-    		if (strncmp(rxData, "CONNECT", 7) == 0)
-    			btConnected = 1;
-			else if (strncmp(rxData, "DISCONNECT", 10) == 0)
-				btConnected = 0;
-
-    		rxData[0] = 0;
-			rxPos = 0;
-    	}
-    	else
-    	{
-    		if (rxPos < MAX_RXSIZE - 1)
-    		{
-    			rxData[rxPos] = ch;
-    			rxPos += 1;
-    			rxData[rxPos] = 0;
-    		}
-    	}
-    }
-
-    if (txPos == 0 && btConnected)
-    {
-    	// update voltage
-		if (voltage != adcVoltage)
-		{
-			voltage = adcVoltage;
-
-			char line[32];
-			sprintf(line, "VOL: %lu\r\n", voltage);
-			SER_puts(&Serial3, line);
-		}
-
-		// check & update key-state
-		if (btnStateChanged & 0x01)
-		//if (osSemaphoreWait(powerSemaphoreId, 0) > 0)
-		{
-			powerBtnState = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
-			btnStateChanged &= ~0x01;
-
-			if (powerBtnState == GPIO_PIN_RESET)
-			{
-				osTimerStart(shutdownTimerId, 2000);
-			}
-			else
-			{
-				osTimerStop(shutdownTimerId);
-			}
-
-			SER_puts(&Serial3, "Power Button: ");
-			SER_puts(&Serial3, powerBtnState == GPIO_PIN_RESET ? "On\r\n" : "Off\r\n");
-
-			//osSemaphoreRelease(powerSemaphoreId);
-		}
-
-		if (btnStateChanged & 0x02)
-		//if (osSemaphoreWait(boardSemaphoreId, 0) > 0)
-		{
-			boardBtnState = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
-			btnStateChanged &= ~0x02;
-
-			SER_puts(&Serial3, "Board Button: ");
-			SER_puts(&Serial3, boardBtnState == GPIO_PIN_RESET ? "Off\r\n" : "On\r\n");
-
-			//osSemaphoreRelease(boardSemaphoreId);
-		}
-    }
-
   }
+
   /* USER CODE END 5 */
 }
 
