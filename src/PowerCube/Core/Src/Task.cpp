@@ -374,7 +374,7 @@ void AdcTaskProc(void const * argument)
 #else
 	ina226.setConfiguration(INA226_64_SAMPLES, INA226_2100_us, INA226_2100_us, INA266_MODE_SHUNTBUSCONT);
 #endif
-	ina226.calibrate(0.02, 0.025);
+	ina226.calibrate(0.02, 0.025, 0.120);
 
 	uint32_t lastTick = HAL_GetTick();
 	bool husb238Attached = false;

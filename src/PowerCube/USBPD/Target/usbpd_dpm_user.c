@@ -36,6 +36,9 @@
 #include "stdio.h"
 #endif /* _TRACE */
 /* USER CODE BEGIN Includes */
+#if !defined(_TRACE)
+#include "string.h"
+#endif /* !_TRACE */
 
 /* USER CODE END Includes */
 
@@ -116,6 +119,7 @@ GUI_NOTIFICATION_FORMAT_SEND  DPM_GUI_FormatAndSendNotification = NULL;
 GUI_SAVE_INFO                 DPM_GUI_SaveInfo                  = NULL;
 
 /* USER CODE BEGIN Private_Variables */
+USBPD_HandleTypeDef                          DPM_Ports[USBPD_PORT_COUNT];
 
 /* USER CODE END Private_Variables */
 /**
@@ -127,6 +131,8 @@ GUI_SAVE_INFO                 DPM_GUI_SaveInfo                  = NULL;
   * @{
   */
 /* USER CODE BEGIN USBPD_USER_PRIVATE_FUNCTIONS_Prototypes */
+static USBPD_StatusTypeDef DPM_TurnOnPower(uint8_t PortNum, USBPD_PortPowerRole_TypeDef Role);
+static USBPD_StatusTypeDef DPM_TurnOffPower(uint8_t PortNum, USBPD_PortPowerRole_TypeDef Role);
 
 /* USER CODE END USBPD_USER_PRIVATE_FUNCTIONS_Prototypes */
 /**
@@ -155,6 +161,13 @@ GUI_SAVE_INFO                 DPM_GUI_SaveInfo                  = NULL;
 USBPD_StatusTypeDef USBPD_DPM_UserInit(void)
 {
 /* USER CODE BEGIN USBPD_DPM_UserInit */
+
+	  /* PWR SET UP */
+	  if(USBPD_OK !=  USBPD_PWR_IF_Init())
+	  {
+	    return USBPD_ERROR;
+	  }
+
   return USBPD_OK;
 /* USER CODE END USBPD_DPM_UserInit */
 }
@@ -251,6 +264,60 @@ DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_DPM_UserCableDetection");
       // break;
     // }
   // }
+
+
+
+#ifdef _GUI_INTERFACE
+  switch(State)
+  {
+  case USBPD_CAD_EVENT_ATTEMC:
+  case USBPD_CAD_EVENT_ATTACHED:
+    /* Format and send a notification to GUI if enabled */
+    if (NULL != DPM_GUI_FormatAndSendNotification)
+    {
+      DPM_GUI_FormatAndSendNotification(PortNum, DPM_GUI_NOTIF_ISCONNECTED, 0);
+    }
+    break;
+  default :
+    /* Format and send a notification to GUI if enabled */
+    if (NULL != DPM_GUI_FormatAndSendNotification)
+    {
+      DPM_GUI_FormatAndSendNotification(PortNum, DPM_GUI_NOTIF_ISCONNECTED | DPM_GUI_NOTIF_POWER_EVENT, 0);
+    }
+  }
+#endif /*_GUI_INTERFACE*/
+
+  switch(State)
+  {
+  case USBPD_CAD_EVENT_ATTACHED:
+  case USBPD_CAD_EVENT_ATTEMC:
+    {
+    if (DPM_Params[PortNum].PE_PowerRole == USBPD_PORTPOWERROLE_SRC)
+    {
+      if (USBPD_OK != USBPD_PWR_IF_VBUSEnable(PortNum))
+      {
+        /* Should not occur */
+        NVIC_SystemReset();
+      }
+    }
+    break;
+    }
+  case USBPD_CAD_EVENT_DETACHED :
+  case USBPD_CAD_EVENT_EMC :
+  default :
+
+    if (DPM_Params[PortNum].PE_PowerRole == USBPD_PORTPOWERROLE_SRC)
+    {
+      if (USBPD_OK != USBPD_PWR_IF_VBUSDisable(PortNum))
+      {
+        /* Should not occur */
+        while(1);
+      }
+    }
+    break;
+  }
+
+
 /* USER CODE END USBPD_DPM_UserCableDetection */
 }
 
@@ -341,6 +408,27 @@ void USBPD_DPM_HardReset(uint8_t PortNum, USBPD_PortPowerRole_TypeDef CurrentRol
 {
 /* USER CODE BEGIN USBPD_DPM_HardReset */
   DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_DPM_HardReset");
+
+  switch (Status)
+  {
+  case USBPD_HR_STATUS_WAIT_VBUS_VSAFE0V:
+    if (USBPD_PORTPOWERROLE_SRC == CurrentRole)
+    {
+      /* Reset the power supply */
+      DPM_TurnOffPower(PortNum, USBPD_PORTPOWERROLE_SRC);
+    }
+    break;
+  case USBPD_HR_STATUS_WAIT_VBUS_VSAFE5V:
+    if (CurrentRole == USBPD_PORTPOWERROLE_SRC)
+    {
+      /* Power on the power supply */
+      DPM_TurnOnPower(PortNum, CurrentRole);
+    }
+    break;
+  default:
+    break;
+  }
+
 /* USER CODE END USBPD_DPM_HardReset */
 }
 
@@ -388,6 +476,33 @@ void USBPD_DPM_GetDataInfo(uint8_t PortNum, USBPD_CORE_DataInfoType_TypeDef Data
     // break;
 //  case USBPD_CORE_BATTERY_CAPABILITY:         /*!< Retrieve of Battery capability message content      */
     // break;
+
+  /* Case Requested voltage value Data information */
+    case USBPD_CORE_DATATYPE_REQ_VOLTAGE :
+      *Size = 4;
+      (void)memcpy((uint8_t*)Ptr, (uint8_t *)&DPM_Ports[PortNum].DPM_RequestedVoltage, *Size);
+      break;
+    case USBPD_CORE_DATATYPE_SRC_PDO :
+      USBPD_PWR_IF_GetPortPDOs(PortNum, DataId, Ptr, Size);
+      *Size *= 4;
+      break;
+    case USBPD_CORE_REVISION:
+      {
+        *Size = sizeof(USBPD_RevisionDO_TypeDef);
+        USBPD_RevisionDO_TypeDef rev =
+        {
+          /* Hardcoded values, user should use a global USBPD_RevisionDO_TypeDef variable */
+          .b.Revision_major = USBPD_REV_MAJOR,         /*!< Major revision */
+          .b.Revision_minor = USBPD_REV_MINOR,         /*!< Minor revision */
+          .b.Version_major  = USBPD_VERSION_MAJOR,     /*!< Major version  */
+          .b.Version_minor  = USBPD_VERSION_MINOR      /*!< Minor version  */
+        };
+
+        memcpy((uint8_t *)Ptr, &rev, *Size);
+        break;
+      }
+
+
   default:
     DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_DPM_GetDataInfo:%d", DataId);
     break;
@@ -433,6 +548,52 @@ void USBPD_DPM_SetDataInfo(uint8_t PortNum, USBPD_CORE_DataInfoType_TypeDef Data
     // break;
 //  case USBPD_CORE_SNK_EXTENDED_CAPA:          /*!< Storing of Sink Extended capability message content       */
     // break;
+
+
+  /* Case Received Request PDO Data information : */
+  case USBPD_CORE_DATATYPE_RDO_POSITION :
+    if (Size == 4)
+    {
+      uint8_t* temp;
+      temp = (uint8_t*)&DPM_Ports[PortNum].DPM_RDOPosition;
+      (void)memcpy(temp, Ptr, Size);
+      DPM_Ports[PortNum].DPM_RDOPositionPrevious = *Ptr;
+      temp = (uint8_t*)&DPM_Ports[PortNum].DPM_RDOPositionPrevious;
+      (void)memcpy(temp, Ptr, Size);
+    }
+    break;
+
+  /* Case Received Sink PDO values Data information :*/
+  case USBPD_CORE_DATATYPE_RCV_SNK_PDO :
+    if (Size <= (USBPD_MAX_NB_PDO * 4))
+    {
+      uint8_t* rdo;
+      DPM_Ports[PortNum].DPM_NumberOfRcvSNKPDO = (Size / 4);
+      /* Copy PDO data in DPM Handle field */
+      for (uint32_t index = 0; index < (Size / 4); index++)
+      {
+        rdo = (uint8_t*)&DPM_Ports[PortNum].DPM_ListOfRcvSNKPDO[index];
+        (void)memcpy(rdo, (Ptr + (index * 4u)), (4u * sizeof(uint8_t)));
+      }
+    }
+    break;
+
+  case USBPD_CORE_DATATYPE_RCV_REQ_PDO :  /*!< Storage of Received Sink Request PDO value                */
+    if (Size == 4)
+    {
+      memcpy((uint8_t *)&DPM_Ports[PortNum].DPM_RcvRequestDOMsg,  Ptr, 4);
+    }
+    break;
+
+  case USBPD_CORE_REVISION:
+    {
+      /* Does nothing: User have to implement a global revision variable */
+      USBPD_RevisionDO_TypeDef rev = {0};
+      memcpy((uint8_t *)&rev, Ptr, sizeof(USBPD_RevisionDO_TypeDef));
+      break;
+    }
+
+
   default:
     DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_DPM_SetDataInfo:%d", DataId);
     break;
@@ -461,10 +622,47 @@ USBPD_StatusTypeDef USBPD_DPM_EvaluateRequest(uint8_t PortNum, USBPD_CORE_PDO_Ty
     (in case of USBPD_CORE_PDO_TYPE_APDO, stack will wait for periodic request
     from the port partner in PPS mode).
   */
+#if USE_GENCODE
   *PtrPowerObject = USBPD_CORE_PDO_TYPE_FIXED;
 
   DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_DPM_EvaluateRequest");
   return USBPD_REJECT;
+#else
+  USBPD_StatusTypeDef _retr = USBPD_REJECT;
+
+  USBPD_PDO_TypeDef pdo;
+  USBPD_SNKRDO_TypeDef rdo;
+  /* read the request value received */
+  rdo.d32 = DPM_Ports[PortNum].DPM_RcvRequestDOMsg;
+
+  /* Search PDO in Port Source PDO list, that corresponds to Position provided in Request RDO */
+  if (USBPD_PWR_IF_SearchRequestedPDO(PortNum,  rdo.GenericRDO.ObjectPosition, &pdo.d32) == USBPD_OK)
+  {
+    /* Evaluate the request */
+    if(pdo.GenericPDO.PowerObject == USBPD_CORE_PDO_TYPE_FIXED)
+    {
+      if((rdo.FixedVariableRDO.OperatingCurrentIn10mAunits > pdo.SRCFixedPDO.MaxCurrentIn10mAunits)
+         || ((rdo.FixedVariableRDO.MaxOperatingCurrent10mAunits > pdo.SRCFixedPDO.MaxCurrentIn10mAunits)&&(rdo.FixedVariableRDO.CapabilityMismatch==0)))
+      {
+        /* Sink requests too much maximum operating current */
+        /* USBPD_DPM_EvaluateRequest: Sink requests too much maximum operating current */
+        _retr =  USBPD_REJECT;
+      }
+      else
+      {
+        /* Save the power object */
+        *PtrPowerObject = pdo.GenericPDO.PowerObject;
+        /* Set RDO position and requested voltage in DPM port structure */
+        DPM_Ports[PortNum].DPM_RequestedVoltage = pdo.SRCFixedPDO.VoltageIn50mVunits * 50;
+        DPM_Ports[PortNum].DPM_RDOPositionPrevious = DPM_Ports[PortNum].DPM_RDOPosition;
+        DPM_Ports[PortNum].DPM_RDOPosition = rdo.GenericRDO.ObjectPosition;
+         _retr = USBPD_ACCEPT;
+      }
+    }
+  }
+  return _retr;
+
+#endif
 /* USER CODE END USBPD_DPM_EvaluateRequest */
 }
 
@@ -1029,6 +1227,33 @@ USBPD_StatusTypeDef USBPD_DPM_RequestSecurityRequest(uint8_t PortNum)
   */
 
 /* USER CODE BEGIN USBPD_USER_PRIVATE_FUNCTIONS */
+/**
+  * @brief  Turn Off power supply.
+  * @param  PortNum The current port number
+  * @param  Role    Port power role
+  * @retval USBPD_OK, USBPD_ERROR
+  */
+static USBPD_StatusTypeDef DPM_TurnOffPower(uint8_t PortNum, USBPD_PortPowerRole_TypeDef Role)
+{
+  USBPD_StatusTypeDef status;
+  status = USBPD_PWR_IF_VBUSDisable(PortNum);
+  return status;
+}
+
+/**
+  * @brief  Turn On power supply.
+  * @param  PortNum The current port number
+  * @param  Role    Port power role
+  * @retval USBPD_ACCEPT, USBPD_WAIT, USBPD_REJECT
+  */
+static USBPD_StatusTypeDef DPM_TurnOnPower(uint8_t PortNum, USBPD_PortPowerRole_TypeDef Role)
+{
+  USBPD_StatusTypeDef status;
+  /* Enable the output */
+  status = USBPD_PWR_IF_VBUSEnable(PortNum);
+  return status;
+}
+
 
 /* USER CODE END USBPD_USER_PRIVATE_FUNCTIONS */
 
