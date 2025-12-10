@@ -21,6 +21,9 @@
 #include "BMP280.h"
 #include "INA226.h"
 #include "HUSB238.h"
+#include "AHT20.H"
+
+#include "BTHandler.h"
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -52,8 +55,10 @@ extern I2CMaster i2c1;
 extern I2CMaster i2c2;
 
 
-INA226 ina266(i2c1);
+INA226 ina226(i2c1);
 HUSB238 husb238(i2c1);
+
+BluetoothHandler bt(Serial3);
 
 
 GPIO_PinState powerBtnState;
@@ -85,7 +90,62 @@ uint32_t adcVoltage = 0; // mV
 
 uint32_t vbusVoltage = 0;
 uint32_t vbusCurrent = 0;
+uint32_t shuntVoltage = 0;
 
+
+//static osThreadDef(DefaultTask, DefaultTaskProc, osPriorityNormal, 0, 256);
+static const osThreadDef_t os_thread_def_DefaultTask =
+{
+	(char *)"DefaultTask",
+	DefaultTaskProc,
+	osPriorityNormal,
+	0,
+	256
+};
+
+// static osThreadDef(AdcTask, AdcTaskProc, osPriorityNormal, 0, 256);
+static const osThreadDef_t os_thread_def_AdcTask =
+{
+	(char *)"AdcTask",
+	AdcTaskProc,
+	osPriorityNormal,
+	0,
+	256
+};
+
+static osTimerDef(ShutdownTimer, ShutdownCallback);
+
+/*
+static osSemaphoreDef(PowerSemaphore);
+static osSemaphoreDef(BoardSemaphore);
+*/
+
+
+
+////////////////////////////////////////////////////////////////////////////
+//
+
+#include <stdarg.h>
+
+char traceBuf[64];
+void Trace(const char *format, ...)
+{
+	if (btConnected)
+	{
+		va_list args;
+		va_start(args, format);
+		vsprintf(traceBuf, format, args);
+		va_end(args);
+
+		Serial3.puts(traceBuf);
+	}
+}
+
+#ifdef DEBUG
+#define TRACE(fmt, ...)	Trace(fmt, __VA_ARGS__)
+#else
+#define TRACE(fmt, ...)
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -94,22 +154,15 @@ uint32_t vbusCurrent = 0;
 void startRTOS()
 {
 	//
-	osThreadDef(DefaultTask, DefaultTaskProc, osPriorityNormal, 0, 128);
 	mainTaskHandle = osThreadCreate(osThread(DefaultTask), NULL);
-
-	//
-	osThreadDef(AdcTask, AdcTaskProc, osPriorityNormal, 0, 128);
 	adcTaskHandle = osThreadCreate(osThread(AdcTask), NULL);
 
 	//
-	osTimerDef(ShutdownTimer, ShutdownCallback);
 	shutdownTimerId = osTimerCreate(osTimer(ShutdownTimer), osTimerOnce, 0);
 
 	//
 	/*
-	osSemaphoreDef(PowerSemaphore);
 	powerSemaphoreId = osSemaphoreCreate(osSemaphore(PowerSemaphore), 1);
-	osSemaphoreDef(BoardSemaphore);
 	boardSemaphoreId = osSemaphoreCreate(osSemaphore(BoardSemaphore), 1);
 	*/
 
@@ -126,11 +179,15 @@ void startRTOS()
 ////////////////////////////////////////////////////////////////////////////
 //
 
+Bme280TwoWire baro;
+#if ENABLE_AHT20
+	AHT20 aht20(i2c2);
+#endif
 
 void DefaultTaskProc(void const * argument)
 {
 	/* init code for USB_Device */
-	MX_USB_Device_Init();
+	//MX_USB_Device_Init();
 	/* USER CODE BEGIN 5 */
 
 	// LED on
@@ -138,13 +195,10 @@ void DefaultTaskProc(void const * argument)
 	// DEVICEs on
 	HAL_GPIO_WritePin(GPIOB, EN_EXTRAPWR_Pin, GPIO_PIN_RESET);
 	// Hold PowerPin
-	HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin|VBUS_POWER_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin/*|VBUS_POWER_Pin*/, GPIO_PIN_SET);
 
 	#if 0
 	{
-		I2CMaster i2c1(&hi2c1);
-		I2CMaster i2c2(&hi2c2);
-
 		bool ina226Ok = i2c1.deviceReady(0x40); 	// OK
 		bool husb238Ok = i2c1.deviceReady(0x08); 	// OK
 		bool bmp280Ok1 = i2c2.deviceReady(0x76);
@@ -159,7 +213,7 @@ void DefaultTaskProc(void const * argument)
 	}
 	#endif
 
-	Bme280TwoWire baro;
+	//
 	baro.begin(Bme280TwoWireAddress::Secondary, &i2c2);
 
 	Bme280Settings powerBaroSet = {
@@ -172,6 +226,11 @@ void DefaultTaskProc(void const * argument)
 	};
 	baro.setSettings(powerBaroSet);
 
+#if ENABLE_AHT20
+	//
+	aht20.begin();
+#endif
+
 	// save latest button state
 	powerBtnState = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
 	boardBtnState = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
@@ -182,7 +241,10 @@ void DefaultTaskProc(void const * argument)
 	uint32_t voltage = adcVoltage;
 	uint32_t lastVBusVoltage = vbusVoltage;
 	uint32_t lastVBusCurrent = vbusCurrent;
-	float temperature, pressure;
+	float temperature = 0, pressure = 0;
+#if ENABLE_AHT20
+	float temp2 = 0, humidity = 0;
+#endif
 
 	rxData[0] = 0;
 	rxPos = 0;
@@ -201,6 +263,11 @@ void DefaultTaskProc(void const * argument)
 
 			temperature = baro.getTemperature();
 			pressure = baro.getPressure();
+
+#if ENABLE_AHT20
+			temp2 = aht20.getTemperature();
+			humidity = aht20.getHumidity();
+#endif
 		}
 
 		//
@@ -239,19 +306,19 @@ void DefaultTaskProc(void const * argument)
 			}
 		}
 
-		if (txPos == 0 && btConnected)
+		if (txPos == 0 /*&& btConnected*/)
 		{
 			// update voltage
 			if (voltage != adcVoltage)
 			{
 				voltage = adcVoltage;
 
-				char line[32];
-				sprintf(line, "VBUS_i: %lu\r\n", voltage);
-				Serial3.puts(line);
+				Trace("VBUS_i: %lu\r\n", voltage);
+				Trace("BMP280: T = %d, P = %d\r\n", (int)temperature, (int)pressure);
 
-				sprintf(line, "T: %d, P: %d\r\n", (int)temperature, (int)pressure);
-				Serial3.puts(line);
+#if ENABLE_AHT20
+				Trace("AHT20: T = %d, H = %d\r\n", (int)temp2, (int)humidity);
+#endif
 			}
 
 			if (lastVBusVoltage != vbusVoltage)
@@ -259,43 +326,33 @@ void DefaultTaskProc(void const * argument)
 				lastVBusVoltage = vbusVoltage;
 				lastVBusCurrent = vbusCurrent;
 
-				char line[32];
-				sprintf(line, "VBUS_o: %lu, %lu\r\n", lastVBusVoltage, lastVBusCurrent);
-				Serial3.puts(line);
+				Trace("VBUS_o: %lu, %lu, %lu\r\n", lastVBusVoltage, lastVBusCurrent, (uint32_t)(shuntVoltage / 0.02));
 			}
 
 			// check & update key-state
 			if (btnStateChanged & 0x01)
-			//if (osSemaphoreWait(powerSemaphoreId, 0) > 0)
 			{
 				powerBtnState = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
 				btnStateChanged &= ~0x01;
 
 				if (powerBtnState == GPIO_PIN_RESET)
 				{
-					osTimerStart(shutdownTimerId, 2000);
+					osTimerStart(shutdownTimerId, 5000);
 				}
 				else
 				{
 					osTimerStop(shutdownTimerId);
 				}
 
-				Serial3.puts("Power Button: ");
-				Serial3.puts(powerBtnState == GPIO_PIN_RESET ? "On\r\n" : "Off\r\n");
-
-				//osSemaphoreRelease(powerSemaphoreId);
+				Trace("Power Button: %s\r\n", powerBtnState == GPIO_PIN_RESET ? "On" : "Off");
 			}
 
 			if (btnStateChanged & 0x02)
-			//if (osSemaphoreWait(boardSemaphoreId, 0) > 0)
 			{
 				boardBtnState = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
 				btnStateChanged &= ~0x02;
 
-				Serial3.puts("Board Button: ");
-				Serial3.puts(boardBtnState == GPIO_PIN_RESET ? "Off\r\n" : "On\r\n");
-
-				//osSemaphoreRelease(boardSemaphoreId);
+				Trace("Board Button: %s\r\n", boardBtnState == GPIO_PIN_RESET ? "Off" : "On");
 			}
 		}
 	}
@@ -309,10 +366,15 @@ void AdcTaskProc(void const * argument)
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&adcValue, 1);
 
 
-	ina266.begin();
-	ina266.setAverage(INA226_64_SAMPLES);
-	//ina266.setMaxCurrentShunt(17, 0.02); // 0.1: 0.85  --> 0.02 4.25
-	ina266.configure(0.02);
+	ina226.begin();
+#if 1
+	ina226.setAverage(INA226_64_SAMPLES);
+	ina226.setBusVoltageConversionTime(INA226_4200_us);
+	//ina226.setMode(7); // shunt-bus-continuous
+#else
+	ina226.setConfiguration(INA226_64_SAMPLES, INA226_2100_us, INA226_2100_us, INA266_MODE_SHUNTBUSCONT);
+#endif
+	ina226.calibrate(0.02, 0.025);
 
 	uint32_t lastTick = HAL_GetTick();
 	bool husb238Attached = false;
@@ -345,6 +407,7 @@ void AdcTaskProc(void const * argument)
 				Serial3.puts(line);
 
 				husb238Attached = true;
+				HAL_GPIO_WritePin(GPIOB, VBUS_POWER_Pin, GPIO_PIN_SET);
 
 				//
 				husb238.updateStatus();
@@ -368,11 +431,13 @@ void AdcTaskProc(void const * argument)
 			else if (adcVoltage < 1000 && husb238Attached)
 			{
 				husb238Attached = false;
+				HAL_GPIO_WritePin(GPIOB, VBUS_POWER_Pin, GPIO_PIN_RESET);
 			}
 
 			//
-			vbusVoltage = (uint32_t)ina266.getBusVoltage_mV();
-			vbusCurrent = (uint32_t)ina266.getCurrent_mA();
+			vbusVoltage = (uint32_t)ina226.getBusVoltage_mV();
+			vbusCurrent = (uint32_t)ina226.getCurrent_mA();
+			shuntVoltage = (uint32_t)ina226.getShuntVoltage_mV();
 
 			//
 			lastTick = HAL_GetTick();
@@ -419,6 +484,7 @@ void ShutdownCallback(void const *arg)
 {
 	//osTimerStop(shutdownTimerId);
 
-	if (btConnected)
-		Serial3.puts("SHUTDOWN!!\r\n");
+	Trace("SHUTDOWN!!\r\n");
+	osDelay(200);
+	HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin, GPIO_PIN_RESET);
 }

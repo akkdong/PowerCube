@@ -205,6 +205,13 @@ uint8_t INA226::getShuntVoltageConversionTime()
   return mask;
 }
 
+uint16_t INA226::setConfiguration(ina226_average_enum avg, ina226_timing_enum vbusct, ina226_timing_enum vshct, in226_mode_settings_enum mode)
+{
+	uint16_t data =	(avg << 9) | (vbusct << 6) | (vshct << 3) | mode;
+	_writeRegister(INA226_CONFIGURATION, data);
+	return data;
+}
+
 
 ////////////////////////////////////////////////////////
 //
@@ -339,7 +346,7 @@ int INA226::setMaxCurrentShunt(float maxCurrent, float shunt, bool normalize)
 }
 
 
-int INA226::configure(float shunt, float current_LSB_mA, float current_zero_offset_mA, uint16_t bus_V_scaling_e4)
+int INA226::calibrate(float shunt, float current_LSB_mA, float current_zero_offset_mA, uint16_t bus_V_scaling_e4)
 {
   if (shunt < INA226_MINIMAL_SHUNT_OHM) return INA226_ERR_SHUNT_LOW;
   float maxCurrent = std::min((INA226_MAX_SHUNT_VOLTAGE / shunt), 32768 * current_LSB_mA * 1e-3);

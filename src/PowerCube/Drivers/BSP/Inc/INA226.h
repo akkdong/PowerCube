@@ -50,7 +50,7 @@
 
 //  for setAverage() and getAverage()
 enum ina226_average_enum {
-    INA226_1_SAMPLE     = 0,
+    INA226_1_SAMPLE     = 0,		// default
     INA226_4_SAMPLES    = 1,
     INA226_16_SAMPLES   = 2,
     INA226_64_SAMPLES   = 3,
@@ -67,10 +67,22 @@ enum ina226_timing_enum {
     INA226_204_us  = 1,
     INA226_332_us  = 2,
     INA226_588_us  = 3,
-    INA226_1100_us = 4,
+    INA226_1100_us = 4,				// default
     INA226_2100_us = 5,
     INA226_4200_us = 6,
     INA226_8300_us = 7
+};
+
+// for Mode Settings
+enum in226_mode_settings_enum {
+	INA266_MODE_POWERDOWN = 0,
+	INA266_MODE_SHUNTVOLTGETRIG = 1,
+	INA266_MODE_BUSVOLTAGETRIG = 2,
+	INA266_MODE_SHUNTANDBUSTRIG = 3,
+	INA266_MODE_POWERDOWN2 = 4,
+	INA266_MODE_SHUNTVOLTAGECONT = 5,
+	INA266_MODE_BUSVOLTAGECONT = 6,
+	INA266_MODE_SHUNTBUSCONT = 7		// default
 };
 
 
@@ -133,6 +145,7 @@ public:
 	uint8_t  getBusVoltageConversionTime();
 	bool     setShuntVoltageConversionTime(uint8_t svct = INA226_1100_us);
 	uint8_t  getShuntVoltageConversionTime();
+	uint16_t setConfiguration(ina226_average_enum avg, ina226_timing_enum vbusct, ina226_timing_enum vshct, in226_mode_settings_enum mode);
 
 
 	//  Calibration
@@ -144,7 +157,7 @@ public:
 	//  shunt      >= 0.001           otherwise returns INA226_ERR_SHUNT_LOW
 	int      setMaxCurrentShunt(float maxCurrent = 20.0, float shunt = 0.002, bool normalize = true);
 	//  configure provides full user control, not requiring call to setMaxCurrentShunt(args) function
-	int      configure(float shunt = 0.1, float current_LSB_mA = 0.1, float current_zero_offset_mA = 0, uint16_t bus_V_scaling_e4 = 10000);
+	int      calibrate(float shunt = 0.1, float current_LSB_mA = 0.1, float current_zero_offset_mA = 0, uint16_t bus_V_scaling_e4 = 10000);
 	bool     isCalibrated()     { return _current_LSB != 0.0; };
 
 	//  These functions return zero if not calibrated!
