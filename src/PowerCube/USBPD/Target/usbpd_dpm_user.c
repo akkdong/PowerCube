@@ -300,6 +300,9 @@ DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_DPM_UserCableDetection");
         NVIC_SystemReset();
       }
     }
+
+    // if DataRole is UFP --> USB_Start
+    //
     break;
     }
   case USBPD_CAD_EVENT_DETACHED :
@@ -386,10 +389,12 @@ void USBPD_DPM_Notification(uint8_t PortNum, USBPD_NotifyEventValue_TypeDef Even
 //      break;
 //    case USBPD_NOTIFY_USBSTACK_STOP:
 //      break;
-//    case USBPD_NOTIFY_DATAROLESWAP_DFP :
-//      break;
-//    case USBPD_NOTIFY_DATAROLESWAP_UFP :
-//      break;
+    case USBPD_NOTIFY_DATAROLESWAP_DFP :
+    	// USB_Stop
+      break;
+    case USBPD_NOTIFY_DATAROLESWAP_UFP :
+    	// USB_Start
+      break;
     default:
       DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: USBPD_DPM_Notification:%d", EventVal);
       break;

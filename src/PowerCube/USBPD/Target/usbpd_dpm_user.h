@@ -69,6 +69,10 @@ typedef struct
   uint32_t                      DPM_RDOPositionPrevious;                 /*!< RDO Position of previous requested DO in Source list of capabilities */
   uint32_t                      DPM_RequestedVoltage;                    /*!< Value of requested voltage                                           */
   uint32_t                      DPM_RequestedCurrent;                    /*!< Value of requested current                                           */
+
+#ifdef USBPD_USBDATA
+   uint8_t                      DPM_USBState;                           /*!< Value to keep the USB state : 0 stop, 1 device started, 2 host started */
+#endif
 } USBPD_HandleTypeDef;
 
 /* USER CODE END Typedef */

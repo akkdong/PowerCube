@@ -110,9 +110,9 @@ USBPD_IdSettingsTypeDef          DPM_ID_Settings[USBPD_PORT_COUNT] =
 USBPD_USER_SettingsTypeDef       DPM_USER_Settings[USBPD_PORT_COUNT] =
 {
   {
-    .PE_DataSwap = USBPD_FALSE,                  /* support data swap                                       */
+    .PE_DataSwap = USBPD_TRUE,                  /* support data swap                                       */
     .PE_VconnSwap = USBPD_FALSE,                 /* support VCONN swap                                  */
-    .PE_DR_Swap_To_DFP = USBPD_TRUE,                  /*  Support of DR Swap to DFP                                  */
+    .PE_DR_Swap_To_DFP = USBPD_FALSE,                  /*  Support of DR Swap to DFP                                  */
     .PE_DR_Swap_To_UFP = USBPD_TRUE,                  /*  Support of DR Swap to UFP                                  */
 #if defined(USBPD_REV30_SUPPORT)
 #if _MANU_INFO

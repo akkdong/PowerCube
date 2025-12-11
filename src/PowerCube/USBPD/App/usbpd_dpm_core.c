@@ -134,14 +134,14 @@ USBPD_StatusTypeDef USBPD_DPM_InitCore(void)
   {
     USBPD_DPM_SetupNewPower,
     USBPD_DPM_HardReset,
-    NULL,
+    NULL, // USBPD_PE_EvaluatPRSwap
     USBPD_DPM_Notification,
     USBPD_DPM_ExtendedMessageReceived,
     USBPD_DPM_GetDataInfo,
     USBPD_DPM_SetDataInfo,
     USBPD_DPM_EvaluateRequest,
-    NULL,
-    NULL,
+    NULL, // USBPD_PE_SNK_EvaluateCapabilities
+    NULL, // USBPD_PE_PowerRoleSwap
     USBPD_PE_TaskWakeUp,
 #if defined(_VCONN_SUPPORT)
     USBPD_DPM_EvaluateVconnSwap,
@@ -186,6 +186,7 @@ USBPD_StatusTypeDef USBPD_DPM_InitCore(void)
     /* check the stack settings */
     DPM_Params[_port_index].PE_SpecRevision  = DPM_Settings[_port_index].PE_SpecRevision;
     DPM_Params[_port_index].PE_PowerRole     = DPM_Settings[_port_index].PE_DefaultRole;
+    DPM_Params[_port_index].PE_DataRole		 = USBPD_PORTDATAROLE_UFP;
     DPM_Params[_port_index].PE_SwapOngoing   = USBPD_FALSE;
     DPM_Params[_port_index].ActiveCCIs       = CCNONE;
     DPM_Params[_port_index].VconnCCIs        = CCNONE;
