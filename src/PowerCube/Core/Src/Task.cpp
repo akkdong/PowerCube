@@ -407,7 +407,7 @@ void AdcTaskProc(void const * argument)
 				Serial3.puts(line);
 
 				husb238Attached = true;
-				HAL_GPIO_WritePin(GPIOB, VBUS_POWER_Pin, GPIO_PIN_SET);
+				//HAL_GPIO_WritePin(GPIOB, VBUS_POWER_Pin, GPIO_PIN_SET);
 
 				//
 				husb238.updateStatus();

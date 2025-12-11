@@ -34,7 +34,7 @@
 /* USER CODE END Includes */
 
 /* Define   ------------------------------------------------------------------*/
-#define PORT0_NB_SOURCEPDO         2U   /* Number of Source PDOs (applicable for port 0)   */
+#define PORT0_NB_SOURCEPDO         1U   /* Number of Source PDOs (applicable for port 0)   */
 #define PORT0_NB_SINKPDO           0U   /* Number of Sink PDOs (applicable for port 0)     */
 #define PORT1_NB_SOURCEPDO         0U   /* Number of Source PDOs (applicable for port 1)   */
 #define PORT1_NB_SINKPDO           0U   /* Number of Sink PDOs (applicable for port 1)     */
@@ -50,27 +50,6 @@
   * @brief  USBPD Port PDO Structure definition
   *
   */
-
- /**
-   * @brief  USBPD Port PDO Structure definition
-   */
- typedef struct
- {
-   uint32_t *ListOfPDO;                          /*!< Pointer on Power Data Objects list, defining port capabilities */
-   uint8_t  *NumberOfPDO;                        /*!< Number of Power Data Objects defined in ListOfPDO
-                                                 This parameter must be set at max to @ref USBPD_MAX_NB_PDO value */
- } USBPD_PortPDO_TypeDef;
-
- /**
-   * @brief  USBPD Port PDO Storage Structure definition
-   */
-
-typedef struct
-{
-  USBPD_PortPDO_TypeDef    SourcePDO;            /*!< SRC Power Data Objects */
-  USBPD_PortPDO_TypeDef    SinkPDO;              /*!< SNK Power Data Objects */
-
-} USBPD_PWR_Port_PDO_Storage_TypeDef;
 /* USER CODE END typedef */
 
 /* Exported define -----------------------------------------------------------*/
@@ -97,18 +76,6 @@ typedef struct
 /* Exported variables --------------------------------------------------------*/
 
 /* USER CODE BEGIN variables */
-
-#ifndef _GUI_INTERFACE
-#ifndef __USBPD_PWR_IF_C
-extern uint8_t USBPD_NbPDO[4];
-extern uint32_t PORT0_PDO_ListSRC[USBPD_MAX_NB_PDO];
-extern uint32_t PORT0_PDO_ListSNK[USBPD_MAX_NB_PDO];
-#else /* __USBPD_PWR_IF_C */
-uint8_t USBPD_NbPDO[4] = {(PORT0_NB_SINKPDO),
-                          (PORT0_NB_SOURCEPDO)};
-#endif /* __USBPD_PWR_IF_C */
-#endif /* _GUI_INTERFACE */
-
 /* USER CODE END variables */
 
 #ifndef __USBPD_PWR_IF_C
@@ -116,8 +83,7 @@ extern uint8_t USBPD_NbPDO[4];
 extern uint32_t PORT0_PDO_ListSRC[USBPD_MAX_NB_PDO];
 extern uint32_t PORT0_PDO_ListSNK[USBPD_MAX_NB_PDO];
 #else
-uint8_t USBPD_NbPDO[4] = {(PORT0_NB_SINKPDO),
-                          (PORT0_NB_SOURCEPDO)};
+uint8_t USBPD_NbPDO[4] = {(PORT0_NB_SINKPDO), (PORT0_NB_SOURCEPDO), (PORT1_NB_SINKPDO), (PORT1_NB_SOURCEPDO)};
 /* Definition of Source PDO for Port 0 */
 uint32_t PORT0_PDO_ListSRC[USBPD_MAX_NB_PDO] =
 {
@@ -126,7 +92,7 @@ uint32_t PORT0_PDO_ListSRC[USBPD_MAX_NB_PDO] =
     USBPD_PDO_TYPE_FIXED                 | /* Fixed supply PDO            */
 
     USBPD_PDO_SRC_FIXED_SET_VOLTAGE(5000U)         | /* Voltage in mV               */
-    USBPD_PDO_SRC_FIXED_SET_MAX_CURRENT(2000U)     | /* Max current in mA           */
+    USBPD_PDO_SRC_FIXED_SET_MAX_CURRENT(1250U)     | /* Max current in mA           */
     USBPD_PDO_SRC_FIXED_PEAKCURRENT_EQUAL          | /* Peak Current info           */
 
     /* Common definitions applicable to all PDOs, defined only in PDO 1 */
@@ -138,14 +104,7 @@ uint32_t PORT0_PDO_ListSRC[USBPD_MAX_NB_PDO] =
     USBPD_PDO_SRC_FIXED_DRP_NOT_SUPPORTED            /* Dual-Role Power             */
   ),
 
-  /* PDO 2 */
-  (
-    USBPD_PDO_TYPE_FIXED                        | /* Fixed supply                */
-
-    USBPD_PDO_SRC_FIXED_SET_VOLTAGE(9000U)         | /* Voltage in mV               */
-    USBPD_PDO_SRC_FIXED_SET_MAX_CURRENT(3000U)     | /* Max current in mA           */
-    USBPD_PDO_SRC_FIXED_PEAKCURRENT_EQUAL            /* Peak Current info           */
-  ),
+  /* PDO 2 */ (0x00000000U),
 
   /* PDO 3 */ (0x00000000U),
 

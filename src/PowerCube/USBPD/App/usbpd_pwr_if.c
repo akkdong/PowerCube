@@ -50,6 +50,28 @@
   */
 /* USER CODE BEGIN Private_Typedef */
 
+ /**
+   * @brief  USBPD Port PDO Structure definition
+   */
+ typedef struct
+ {
+   uint32_t *ListOfPDO;                          /*!< Pointer on Power Data Objects list, defining port capabilities */
+   uint8_t  *NumberOfPDO;                        /*!< Number of Power Data Objects defined in ListOfPDO
+                                                 This parameter must be set at max to @ref USBPD_MAX_NB_PDO value */
+ } USBPD_PortPDO_TypeDef;
+
+ /**
+   * @brief  USBPD Port PDO Storage Structure definition
+   */
+
+typedef struct
+{
+  USBPD_PortPDO_TypeDef    SourcePDO;            /*!< SRC Power Data Objects */
+  USBPD_PortPDO_TypeDef    SinkPDO;              /*!< SNK Power Data Objects */
+
+} USBPD_PWR_Port_PDO_Storage_TypeDef;
+
+
 /* USER CODE END Private_Typedef */
 /**
   * @}
@@ -121,17 +143,13 @@ USBPD_PWR_Port_PDO_Storage_TypeDef PWR_Port_PDO_Storage[USBPD_PORT_COUNT];
 USBPD_StatusTypeDef USBPD_PWR_IF_Init(void)
 {
 /* USER CODE BEGIN USBPD_PWR_IF_Init */
-#if USE_GENCODE
-	  return USBPD_ERROR;
-#else
-	  USBPD_StatusTypeDef _status = USBPD_OK;
+  USBPD_StatusTypeDef _status = USBPD_OK;
 
-	  /* Set links to PDO values and number for Port 0 (defined in PDO arrays in H file). */
-	  PWR_Port_PDO_Storage[USBPD_PORT_0].SourcePDO.ListOfPDO = (uint32_t *) PORT0_PDO_ListSRC;
-	  PWR_Port_PDO_Storage[USBPD_PORT_0].SourcePDO.NumberOfPDO = &USBPD_NbPDO[1];
+  /* Set links to PDO values and number for Port 0 (defined in PDO arrays in H file). */
+  PWR_Port_PDO_Storage[USBPD_PORT_0].SourcePDO.ListOfPDO = (uint32_t *) PORT0_PDO_ListSRC;
+  PWR_Port_PDO_Storage[USBPD_PORT_0].SourcePDO.NumberOfPDO = &USBPD_NbPDO[1];
 
-	  return _status;
-#endif
+  return _status;
 /* USER CODE END USBPD_PWR_IF_Init */
 }
 
@@ -143,28 +161,13 @@ USBPD_StatusTypeDef USBPD_PWR_IF_Init(void)
 USBPD_StatusTypeDef USBPD_PWR_IF_SetProfile(uint8_t PortNum)
 {
 /* USER CODE BEGIN USBPD_PWR_IF_SetProfile */
-  USBPD_StatusTypeDef      _status = USBPD_ERROR;
+  USBPD_StatusTypeDef status = USBPD_ERROR;
   PWR_IF_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_PWR_IF_SetProfile");
-  if (BSP_ERROR_NONE == BSP_USBPD_PWR_VBUSSetVoltage_Fixed(PortNum, 5000, 3000, 3000))
+  if (BSP_ERROR_NONE == BSP_USBPD_PWR_VBUSSetVoltage_Fixed(PortNum, 5000, 1500, 3000))
   {
-     _status = USBPD_OK;
+     status = USBPD_OK;
   }
-
-  return _status;
-
-/*
-  USBPD_PDO_TypeDef        _pdo;
-  USBPD_SNKRDO_TypeDef     _rdo;
-  _rdo.d32 = DPM_Ports[PortNum].DPM_RcvRequestDOMsg;
-  _pdo.d32 = PORT0_PDO_ListSRC[0];
-  return (BSP_ERROR_NONE == BSP_USBPD_PWR_VBUSSetVoltage_Fixed(PortNum,
-                                               _pdo.SRCFixedPDO.VoltageIn50mVunits * 50,
-                                               (_rdo.FixedVariableRDO.OperatingCurrentIn10mAunits * 10),
-                                               (_rdo.FixedVariableRDO.MaxOperatingCurrent10mAunits * 10)
-                                               )? USBPD_OK : USBPD_ERROR);
-*/
-
-
+  return status;
 /* USER CODE END USBPD_PWR_IF_SetProfile */
 }
 
@@ -292,13 +295,14 @@ USBPD_StatusTypeDef USBPD_PWR_IF_Disable_VConn(uint8_t PortNum, CCxPin_TypeDef C
   */
 void USBPD_PWR_IF_GetPortPDOs(uint8_t PortNum, USBPD_CORE_DataInfoType_TypeDef DataId, uint8_t *Ptr, uint32_t *Size)
 {
+	/*
     if (DataId == USBPD_CORE_DATATYPE_SRC_PDO)
     {
       *Size = USBPD_NbPDO[1];
       memcpy(Ptr,PORT0_PDO_ListSRC, sizeof(uint32_t) * USBPD_NbPDO[1]);
     }
+    */
 /* USER CODE BEGIN USBPD_PWR_IF_GetPortPDOs */
-
 
     if (DataId == USBPD_CORE_DATATYPE_SRC_PDO)
     {
@@ -321,61 +325,6 @@ void USBPD_PWR_IF_GetPortPDOs(uint8_t PortNum, USBPD_CORE_DataInfoType_TypeDef D
   #endif /* _GUI_INTERFACE */
     }
 
-    uint32_t   nbpdo, index, nb_valid_pdo = 0;
-    uint32_t   *ptpdoarray = NULL;
-    USBPD_PDO_TypeDef pdo_first;
-    USBPD_PDO_TypeDef pdo;
-
-    /* Check if valid port */
-    if (USBPD_PORT_IsValid(PortNum))
-    {
-      /* According to type of PDO to be read, set pointer on values and nb of elements */
-      switch (DataId)
-      {
-        case USBPD_CORE_DATATYPE_SRC_PDO :
-          nbpdo = *PWR_Port_PDO_Storage[PortNum].SourcePDO.NumberOfPDO;
-          ptpdoarray = PWR_Port_PDO_Storage[PortNum].SourcePDO.ListOfPDO;
-          /* Save the 1st PDO */
-          pdo_first.d32 = *ptpdoarray;
-          /* Reset unchunked bit if current revision is PD2.0*/
-          if (USBPD_SPECIFICATION_REV2 == DPM_Params[PortNum].PE_SpecRevision)
-          {
-            pdo_first.SRCFixedPDO.UnchunkedExtendedMessage  = USBPD_PDO_SRC_FIXED_UNCHUNK_NOT_SUPPORTED;
-          }
-          break;
-
-        default:
-          nbpdo = 0;
-          break;
-      }
-      /* Copy PDO data in output buffer */
-      for (index = 0; index < nbpdo; index++)
-      {
-        pdo.d32 = *ptpdoarray;
-        /* Copy only PDO (and not APDO in case of current revision is PD2.0) */
-        if ((USBPD_SPECIFICATION_REV2 == DPM_Params[PortNum].PE_SpecRevision)
-           && (pdo.GenericPDO.PowerObject == USBPD_CORE_PDO_TYPE_APDO))
-        {
-        }
-        else
-        {
-          /* Copy 1st PDO as potentially FRS or UNCHUNKED bits have been reset */
-          if (0 == index)
-          {
-            (void)memcpy(Ptr, (uint8_t*)&pdo_first.d32, 4u);
-          }
-          else
-          {
-            (void)memcpy((Ptr + (nb_valid_pdo * 4u)), (uint8_t*)ptpdoarray, 4u);
-          }
-          nb_valid_pdo++;
-        }
-        ptpdoarray++;
-      }
-      /* Set nb of read PDO (nb of u32 elements); */
-      *Size = nb_valid_pdo;
-    }
-
 /* USER CODE END USBPD_PWR_IF_GetPortPDOs */
 }
 
@@ -391,17 +340,13 @@ void USBPD_PWR_IF_GetPortPDOs(uint8_t PortNum, USBPD_CORE_DataInfoType_TypeDef D
 USBPD_StatusTypeDef USBPD_PWR_IF_SearchRequestedPDO(uint8_t PortNum, uint32_t RdoPosition, uint32_t *Pdo)
 {
 /* USER CODE BEGIN USBPD_PWR_IF_SearchRequestedPDO */
-#if USE_GENCODE
-	  return USBPD_FAIL;
-#else
-	  if((RdoPosition == 0) || (RdoPosition > *PWR_Port_PDO_Storage[PortNum].SourcePDO.NumberOfPDO))
-	  {
-	    /* Invalid PDO index */
-	    return USBPD_FAIL;
-	  }
-	  *Pdo = PWR_Port_PDO_Storage[PortNum].SourcePDO.ListOfPDO[RdoPosition - 1];
-	  return USBPD_OK;
-#endif
+  if((RdoPosition == 0) || (RdoPosition > *PWR_Port_PDO_Storage[PortNum].SourcePDO.NumberOfPDO))
+  {
+    /* Invalid PDO index */
+    return USBPD_FAIL;
+  }
+  *Pdo = PWR_Port_PDO_Storage[PortNum].SourcePDO.ListOfPDO[RdoPosition - 1];
+  return USBPD_OK;
 /* USER CODE END USBPD_PWR_IF_SearchRequestedPDO */
 }
 
