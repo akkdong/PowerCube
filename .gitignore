@@ -47,6 +47,7 @@ fp-info-cache
 .pio
 .vscode
 .settings
+.vs
 
 /ref
 /test
@@ -55,3 +56,6 @@ fp-info-cache
 Debug/
 Release/
 PowerCube_Test/
+bin-*/
+
+*.user
