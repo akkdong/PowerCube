@@ -23,6 +23,7 @@
 #include "gui_api.h"
 
 /* USER CODE BEGIN 0 */
+#include "usb_device.h"
 /* USER CODE END 0 */
 
 /* USER CODE BEGIN 1 */
@@ -59,6 +60,8 @@ void MX_USBPD_Init(void)
   }
 
   /* USER CODE BEGIN 3 */
+  USBPD_Device_Init();
+  //USBPD_Device_Start();
   /* USER CODE END 3 */
 
   if (USBPD_OK != USBPD_DPM_InitOS())

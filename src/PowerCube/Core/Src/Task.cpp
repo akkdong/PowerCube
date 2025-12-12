@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 
-void DefaultTaskProc(void const * argument);
+void MainTaskProc(void const * argument);
 void AdcTaskProc(void const * argument);
 
 void ShutdownCallback(void const *arg);
@@ -93,11 +93,11 @@ uint32_t vbusCurrent = 0;
 uint32_t shuntVoltage = 0;
 
 
-//static osThreadDef(DefaultTask, DefaultTaskProc, osPriorityNormal, 0, 256);
-static const osThreadDef_t os_thread_def_DefaultTask =
+//static osThreadDef(MainTask, MainTaskProc, osPriorityNormal, 0, 256);
+static const osThreadDef_t os_thread_def_MainTask =
 {
-	(char *)"DefaultTask",
-	DefaultTaskProc,
+	(char *)"MainTask",
+	MainTaskProc,
 	osPriorityNormal,
 	0,
 	256
@@ -154,7 +154,7 @@ void Trace(const char *format, ...)
 void startRTOS()
 {
 	//
-	mainTaskHandle = osThreadCreate(osThread(DefaultTask), NULL);
+	mainTaskHandle = osThreadCreate(osThread(MainTask), NULL);
 	adcTaskHandle = osThreadCreate(osThread(AdcTask), NULL);
 
 	//
@@ -184,18 +184,19 @@ Bme280TwoWire baro;
 	AHT20 aht20(i2c2);
 #endif
 
-void DefaultTaskProc(void const * argument)
+void MainTaskProc(void const * argument)
 {
 	/* init code for USB_Device */
 	//MX_USB_Device_Init();
 	/* USER CODE BEGIN 5 */
 
 	// LED on
-	HAL_GPIO_WritePin(GPIOB, LED_DEVICERDY_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(LED_DEVICERDY_GPIO_Port, LED_DEVICERDY_Pin, GPIO_PIN_RESET);
 	// DEVICEs on
-	HAL_GPIO_WritePin(GPIOB, EN_EXTRAPWR_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(EN_EXTRAPWR_GPIO_Port, EN_EXTRAPWR_Pin, GPIO_PIN_RESET);
 	// Hold PowerPin
-	HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin/*|VBUS_POWER_Pin*/, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(HOLD_POWER_GPIO_Port, HOLD_POWER_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(VBUS_POWER_GPIO_Port, VBUS_POWER_Pin, GPIO_PIN_RESET);
 
 	#if 0
 	{
@@ -257,7 +258,7 @@ void DefaultTaskProc(void const * argument)
 		if (HAL_GetTick() - tickCount > 500)
 		{
 			ledState = 1 - ledState;
-			HAL_GPIO_WritePin(GPIOB, LED_DEVICERDY_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(LED_DEVICERDY_GPIO_Port, LED_DEVICERDY_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
 			HAL_GPIO_WritePin(LED_BOARD_GPIO_Port, LED_BOARD_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
 			tickCount = HAL_GetTick();
 
@@ -407,7 +408,7 @@ void AdcTaskProc(void const * argument)
 				Serial3.puts(line);
 
 				husb238Attached = true;
-				//HAL_GPIO_WritePin(GPIOB, VBUS_POWER_Pin, GPIO_PIN_SET);
+				//HAL_GPIO_WritePin(VBUS_POWER_GPIO_Port, VBUS_POWER_Pin, GPIO_PIN_SET);
 
 				//
 				husb238.updateStatus();
@@ -431,7 +432,7 @@ void AdcTaskProc(void const * argument)
 			else if (adcVoltage < 1000 && husb238Attached)
 			{
 				husb238Attached = false;
-				HAL_GPIO_WritePin(GPIOB, VBUS_POWER_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(VBUS_POWER_GPIO_Port, VBUS_POWER_Pin, GPIO_PIN_RESET);
 			}
 
 			//

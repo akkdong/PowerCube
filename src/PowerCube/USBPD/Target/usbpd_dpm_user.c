@@ -40,6 +40,7 @@
 #include "string.h"
 #endif /* !_TRACE */
 
+#include "usb_device.h"
 /* USER CODE END Includes */
 
 /** @addtogroup STM32_USBPD_APPLICATION
@@ -220,23 +221,6 @@ void USBPD_DPM_UserExecute(void *argument)
   */
 void USBPD_DPM_UserCableDetection(uint8_t PortNum, USBPD_CAD_EVENT State)
 {
-  switch(State)
-  {
-  case USBPD_CAD_EVENT_ATTEMC:
-  case USBPD_CAD_EVENT_ATTACHED:
-    /* Format and send a notification to GUI if enabled */
-    if (NULL != DPM_GUI_FormatAndSendNotification)
-    {
-      DPM_GUI_FormatAndSendNotification(PortNum, DPM_GUI_NOTIF_ISCONNECTED, 0);
-    }
-    break;
-  default :
-    /* Format and send a notification to GUI if enabled */
-    if (NULL != DPM_GUI_FormatAndSendNotification)
-    {
-      DPM_GUI_FormatAndSendNotification(PortNum, DPM_GUI_NOTIF_ISCONNECTED | DPM_GUI_NOTIF_POWER_EVENT, 0);
-    }
-  }
 /* USER CODE BEGIN USBPD_DPM_UserCableDetection */
 DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_DPM_UserCableDetection");
   // switch(State)
@@ -264,8 +248,6 @@ DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_DPM_UserCableDetection");
       // break;
     // }
   // }
-
-
 
 #ifdef _GUI_INTERFACE
   switch(State)
@@ -361,7 +343,7 @@ void USBPD_DPM_Notification(uint8_t PortNum, USBPD_NotifyEventValue_TypeDef Even
   /* Manage event notified by the stack? */
   switch(EventVal)
   {
-//    case USBPD_NOTIFY_POWER_EXPLICIT_CONTRACT :
+    case USBPD_NOTIFY_POWER_EXPLICIT_CONTRACT :
 //      break;
 //    case USBPD_NOTIFY_REQUEST_ACCEPTED:
 //      break;
@@ -385,19 +367,42 @@ void USBPD_DPM_Notification(uint8_t PortNum, USBPD_NotifyEventValue_TypeDef Even
 //      break;
 //    case USBPD_NOTIFY_PE_DISABLED :
 //      break;
-//    case USBPD_NOTIFY_USBSTACK_START:
+    case USBPD_NOTIFY_USBSTACK_START: // 104
 //      break;
-//    case USBPD_NOTIFY_USBSTACK_STOP:
+    case USBPD_NOTIFY_USBSTACK_STOP:
 //      break;
     case USBPD_NOTIFY_DATAROLESWAP_DFP :
-    	// USB_Stop
-      break;
+//      break;
     case USBPD_NOTIFY_DATAROLESWAP_UFP :
-    	// USB_Start
-      break;
+//      break;
+    case USBPD_NOTIFY_POWER_STATE_CHANGE: // 90
+    case USBPD_NOTIFY_SRCCAP_SENT: // 15
+    case USBPD_NOTIFY_STATE_SRC_READY: // 103
     default:
       DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: USBPD_DPM_Notification:%d", EventVal);
       break;
+  }
+
+  if (EventVal == USBPD_NOTIFY_STATE_SRC_READY)
+  {
+	  if (DPM_Params[PortNum].PE_DataRole == USBPD_PORTDATAROLE_DFP)
+	  {
+		  DPM_USER_DEBUG_TRACE(PortNum, "Request DATA Role swap!");
+		  USBPD_DPM_RequestDataRoleSwap(PortNum);
+	  }
+  }
+  if (EventVal == USBPD_NOTIFY_DATAROLESWAP_UFP)
+  {
+	  DPM_USER_DEBUG_TRACE(PortNum, "Change DataRole to UFP");
+	  DPM_Params[PortNum].PE_DataRole = USBPD_PORTDATAROLE_UFP;
+
+	  USBPD_Device_Start();
+  }
+  if (EventVal == USBPD_NOTIFY_USBSTACK_STOP)
+  {
+	  DPM_USER_DEBUG_TRACE(PortNum, "Stop USB Device & Roll back DataRole to DFP");
+	  USBPD_Device_Stop();
+	  DPM_Params[PortNum].PE_DataRole = USBPD_PORTDATAROLE_DFP;
   }
 /* USER CODE END USBPD_DPM_Notification */
 }
@@ -460,15 +465,11 @@ USBPD_StatusTypeDef USBPD_DPM_SetupNewPower(uint8_t PortNum)
 void USBPD_DPM_GetDataInfo(uint8_t PortNum, USBPD_CORE_DataInfoType_TypeDef DataId, uint8_t *Ptr, uint32_t *Size)
 {
 /* USER CODE BEGIN USBPD_DPM_GetDataInfo */
+  DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: USBPD_DPM_GetDataInfo:%d", DataId);
+
   /* Check type of information targeted by request */
   switch(DataId)
   {
-//  case USBPD_CORE_DATATYPE_REQ_VOLTAGE:       /*!< Get voltage value requested for BIST tests, expect 5V*/
-//    *Size = 4;
-//    (void)memcpy((uint8_t *)Ptr, (uint8_t *)&DPM_Ports[PortNum].DPM_RequestedVoltage, *Size);
-    // break;
-//  case USBPD_CORE_DATATYPE_SRC_PDO:           /*!< Handling of port Source PDO                         */
-    // break;
 //  case USBPD_CORE_PPS_STATUS:                 /*!< PPS Status message content                          */
     // break;
 //  case USBPD_CORE_SNK_EXTENDED_CAPA:          /*!< Retrieve of Sink Extended capability message content*/
@@ -482,7 +483,6 @@ void USBPD_DPM_GetDataInfo(uint8_t PortNum, USBPD_CORE_DataInfoType_TypeDef Data
 //  case USBPD_CORE_BATTERY_CAPABILITY:         /*!< Retrieve of Battery capability message content      */
     // break;
 
-  /* Case Requested voltage value Data information */
     case USBPD_CORE_DATATYPE_REQ_VOLTAGE :
       *Size = 4;
       (void)memcpy((uint8_t*)Ptr, (uint8_t *)&DPM_Ports[PortNum].DPM_RequestedVoltage, *Size);
@@ -509,7 +509,6 @@ void USBPD_DPM_GetDataInfo(uint8_t PortNum, USBPD_CORE_DataInfoType_TypeDef Data
 
 
   default:
-    DPM_USER_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_DPM_GetDataInfo:%d", DataId);
     break;
   }
 /* USER CODE END USBPD_DPM_GetDataInfo */
@@ -657,6 +656,7 @@ USBPD_StatusTypeDef USBPD_DPM_EvaluateRequest(uint8_t PortNum, USBPD_CORE_PDO_Ty
       {
         /* Save the power object */
         *PtrPowerObject = pdo.GenericPDO.PowerObject;
+
         /* Set RDO position and requested voltage in DPM port structure */
         DPM_Ports[PortNum].DPM_RequestedVoltage = pdo.SRCFixedPDO.VoltageIn50mVunits * 50;
         DPM_Ports[PortNum].DPM_RDOPositionPrevious = DPM_Ports[PortNum].DPM_RDOPosition;

@@ -186,7 +186,7 @@ USBPD_StatusTypeDef USBPD_DPM_InitCore(void)
     /* check the stack settings */
     DPM_Params[_port_index].PE_SpecRevision  = DPM_Settings[_port_index].PE_SpecRevision;
     DPM_Params[_port_index].PE_PowerRole     = DPM_Settings[_port_index].PE_DefaultRole;
-    DPM_Params[_port_index].PE_DataRole		 = USBPD_PORTDATAROLE_UFP;
+//  DPM_Params[_port_index].PE_DataRole		 = USBPD_PORTDATAROLE_UFP;
     DPM_Params[_port_index].PE_SwapOngoing   = USBPD_FALSE;
     DPM_Params[_port_index].ActiveCCIs       = CCNONE;
     DPM_Params[_port_index].VconnCCIs        = CCNONE;
