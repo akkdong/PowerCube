@@ -1,11 +1,11 @@
 /*
- * BTHandler.h
+ * BluetoothHandler.h
  *
  *
  */
 
-#ifndef BTHANDLER_H_
-#define BTHANDLER_H_
+#ifndef BLUETOOTHHANDLER_H_
+#define BLUETOOTHHANDLER_H_
 
 #include "HardwareSerial.h"
 #include "cmsis_os.h"
@@ -28,24 +28,39 @@ public:
 
 public:
 	bool begin();
-	void update();
 	void end();
 
-	State getState() { return m_state; }
+	int update();
 
-	int puts(const char *str);
-	int putc(int ch);
+	const char *getReceiveData() { return m_line; }
+	void clearData();
+
+	State getState() { return m_state; }
+	void setState(State state) { m_state = state; }
+
+	int puts(const char *str, bool appendLineFeed = false);
+	int putc(char ch);
 	int printf(const char *fmt, ...);
+	int printf(const char *fmt, va_list &args);
 
 protected:
 	void write(const char *str, int len = -1);
+	void write(const char *fmt, va_list &args);
 
 protected:
 	HardwareSerial &m_serial;
 	State m_state;
 
 	osMutexId m_mutexId;
+
+	//
+	static const int m_bufSize = 64;
+
+	static char m_line[m_bufSize];
+	static int m_linePos;
+
+	static char m_temp[m_bufSize];
 };
 
 
-#endif /* BTHANDLER_H_ */
+#endif /* BLUETOOTHHANDLER_H_ */

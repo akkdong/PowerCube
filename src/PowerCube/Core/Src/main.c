@@ -49,8 +49,10 @@ DMA_HandleTypeDef hdma_adc1;
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
 
+#if 0
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+#endif
 
 osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
@@ -65,9 +67,9 @@ void MX_LPUART1_UART_Init(void);
 void MX_UCPD1_Init(void);
 void MX_I2C1_Init(void);
 void MX_I2C2_Init(void);
-void MX_USART2_UART_Init(void);
+void MX_USART2_UART_Init(UART_HandleTypeDef *pHandle);
 void MX_ADC1_Init(void);
-void MX_USART3_UART_Init(void);
+void MX_USART3_UART_Init(UART_HandleTypeDef *pHandle);
 void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
@@ -113,11 +115,14 @@ int MAIN_OBSOLETE(void)
   MX_UCPD1_Init();
   MX_I2C1_Init();
   MX_I2C2_Init();
-  MX_USART2_UART_Init();
+  /*
+  MX_USART2_UART_Init(&huart2;
+  */
   MX_ADC1_Init();
-  MX_USART3_UART_Init();
+  /*
+  MX_USART3_UART_Init(&huart3);
+  */
   /* USER CODE BEGIN 2 */
-
   /* USER CODE END 2 */
 
   /* USBPD initialization ---------------------------------*/
@@ -484,7 +489,7 @@ void MX_LPUART1_UART_Init(void)
   * @param None
   * @retval None
   */
-void MX_USART2_UART_Init(void)
+void MX_USART2_UART_Init(UART_HandleTypeDef *pHandle)
 {
 
   /* USER CODE BEGIN USART2_Init 0 */
@@ -494,30 +499,30 @@ void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 1 */
 
   /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 9600;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart2.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
+  pHandle->Instance = USART2;
+  pHandle->Init.BaudRate = 9600;
+  pHandle->Init.WordLength = UART_WORDLENGTH_8B;
+  pHandle->Init.StopBits = UART_STOPBITS_1;
+  pHandle->Init.Parity = UART_PARITY_NONE;
+  pHandle->Init.Mode = UART_MODE_TX_RX;
+  pHandle->Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  pHandle->Init.OverSampling = UART_OVERSAMPLING_16;
+  pHandle->Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  pHandle->Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  pHandle->AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(pHandle) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_UARTEx_SetTxFifoThreshold(&huart2, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  if (HAL_UARTEx_SetTxFifoThreshold(pHandle, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_UARTEx_SetRxFifoThreshold(&huart2, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  if (HAL_UARTEx_SetRxFifoThreshold(pHandle, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_UARTEx_DisableFifoMode(&huart2) != HAL_OK)
+  if (HAL_UARTEx_DisableFifoMode(pHandle) != HAL_OK)
   {
     Error_Handler();
   }
@@ -532,7 +537,7 @@ void MX_USART2_UART_Init(void)
   * @param None
   * @retval None
   */
-void MX_USART3_UART_Init(void)
+void MX_USART3_UART_Init(UART_HandleTypeDef *pHandle)
 {
 
   /* USER CODE BEGIN USART3_Init 0 */
@@ -542,30 +547,30 @@ void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 1 */
 
   /* USER CODE END USART3_Init 1 */
-  huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
-  huart3.Init.WordLength = UART_WORDLENGTH_8B;
-  huart3.Init.StopBits = UART_STOPBITS_1;
-  huart3.Init.Parity = UART_PARITY_NONE;
-  huart3.Init.Mode = UART_MODE_TX_RX;
-  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart3.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart3) != HAL_OK)
+  pHandle->Instance = USART3;
+  pHandle->Init.BaudRate = 9600;
+  pHandle->Init.WordLength = UART_WORDLENGTH_8B;
+  pHandle->Init.StopBits = UART_STOPBITS_1;
+  pHandle->Init.Parity = UART_PARITY_NONE;
+  pHandle->Init.Mode = UART_MODE_TX_RX;
+  pHandle->Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  pHandle->Init.OverSampling = UART_OVERSAMPLING_16;
+  pHandle->Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  pHandle->Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  pHandle->AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(pHandle) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_UARTEx_SetTxFifoThreshold(&huart3, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  if (HAL_UARTEx_SetTxFifoThreshold(pHandle, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_UARTEx_SetRxFifoThreshold(&huart3, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  if (HAL_UARTEx_SetRxFifoThreshold(pHandle, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_UARTEx_DisableFifoMode(&huart3) != HAL_OK)
+  if (HAL_UARTEx_DisableFifoMode(pHandle) != HAL_OK)
   {
     Error_Handler();
   }

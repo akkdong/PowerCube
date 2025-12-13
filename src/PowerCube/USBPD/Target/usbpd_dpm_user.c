@@ -661,6 +661,8 @@ USBPD_StatusTypeDef USBPD_DPM_EvaluateRequest(uint8_t PortNum, USBPD_CORE_PDO_Ty
         DPM_Ports[PortNum].DPM_RequestedVoltage = pdo.SRCFixedPDO.VoltageIn50mVunits * 50;
         DPM_Ports[PortNum].DPM_RDOPositionPrevious = DPM_Ports[PortNum].DPM_RDOPosition;
         DPM_Ports[PortNum].DPM_RDOPosition = rdo.GenericRDO.ObjectPosition;
+        DPM_USER_DEBUG_TRACE(PortNum, "USBPD_DPM_EvaluateRequest(#%lu: %lu)", DPM_Ports[PortNum].DPM_RDOPosition, DPM_Ports[PortNum].DPM_RequestedVoltage);
+
          _retr = USBPD_ACCEPT;
       }
     }

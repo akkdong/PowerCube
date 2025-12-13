@@ -6,25 +6,28 @@
  */
 
 
+#include <stm32g4xx_hal_exuart.h>
 #include "HardwareSerial.h"
+
 
 
 //////////////////////////////////////////////////////////////////////////////////
 //
 
+#if METHOD_OBSOLETE
+
 #if ENABLE_UART1
-extern UART_HandleTypeDef huart1;
+extern UART_ExHandleTypeDef exhuart1;
 #endif
 #if ENABLE_UART2
-extern UART_HandleTypeDef huart2;
+extern UART_ExHandleTypeDef exhuart2;
 #endif
 #if ENABLE_UART3
-extern UART_HandleTypeDef huart3;
+extern UART_ExHandleTypeDef exhuart3;
 #endif
 #if ENABLE_UART4
-extern UART_HandleTypeDef huart4;
+extern UART_ExHandleTypeDef exhuart4;
 #endif
-
 
 static HardwareSerial instance[SERIALMAX] =
 {
@@ -59,9 +62,29 @@ HardwareSerial &Serial3 = instance[SERIAL3];
 HardwareSerial &Serial4 = instance[SERIAL4];
 #endif //ENABLE_UART4
 
+#else // METHOD_OBSOLETE
+
+#if ENABLE_UART1
+HardwareSerial Serial;
+#endif // ENABLE_UART1
+
+#if ENABLE_UART2
+HardwareSerial Serial2;
+#endif // ENABLE_UART2
+
+#if ENABLE_UART3
+HardwareSerial Serial3;
+#endif // ENABLE_UART3
+
+#if ENABLE_UART4
+HardwareSerial Serial4;
+#endif //ENABLE_UART4
+
+#endif // METHOD_OBSOLETE
 
 static HardwareSerial *getObject(UART_HandleTypeDef *pHandle)
 {
+#if METHOD_OBSOLETE
 #if ENABLE_UART1
 	if (Serial1 == pHandle)
 		return &Serial1;
@@ -82,6 +105,14 @@ static HardwareSerial *getObject(UART_HandleTypeDef *pHandle)
 			return &Serial4;
 #endif //ENABLE_UART4
 
+#else // METHOD_OBSOLETE
+
+	UART_ExHandleTypeDef *pSerial = reinterpret_cast<UART_ExHandleTypeDef *>(pHandle);
+	if (pSerial->pUserData)
+		return reinterpret_cast<HardwareSerial *>(pSerial->pUserData);
+
+#endif // METHOD_OBSOLETE
+
 	return nullptr;
 }
 
@@ -92,20 +123,27 @@ static HardwareSerial *getObject(UART_HandleTypeDef *pHandle)
 //////////////////////////////////////////////////////////////////////////////////
 //
 
-HardwareSerial::HardwareSerial(UART_HandleTypeDef *pHandle, IRQn_Type irq)
-	: m_pHandle(pHandle)
-	, m_irq(irq)
+HardwareSerial::HardwareSerial() : m_pHandle(nullptr)
 {
 }
+
+//HardwareSerial::HardwareSerial(UART_HandleTypeDef *pHandle)
+//	: m_pHandle(pHandle)
+//{
+//}
 
 HardwareSerial::~HardwareSerial()
 {
 }
 
 
-int HardwareSerial::begin()
+int HardwareSerial::begin(UART_ExHandleTypeDef *pHandle, IRQn_Type irq)
 {
 	//
+	pHandle->pUserData = reinterpret_cast<void *>(this);
+	m_pHandle = &pHandle->huart;
+	m_irq = irq;
+
 	this->reset();
 
 	//
@@ -126,7 +164,11 @@ int HardwareSerial::available()
 
 int HardwareSerial::read()
 {
-	return RB_Pop(&m_rxBuf);
+	//__disable_irq();
+	int ch = RB_Pop(&m_rxBuf);
+	//__enable_irq();
+
+	return ch;
 }
 
 int HardwareSerial::write(uint8_t ch)
@@ -166,9 +208,9 @@ void HardwareSerial::transmit()
 
 		if (m_txDataCache >= 0)
 		{
-			HAL_NVIC_DisableIRQ(m_irq);
+			//HAL_NVIC_DisableIRQ(m_irq);
 			HAL_UART_Transmit_IT(this->getHandle(), (uint8_t *)&m_txDataCache, 1);
-			HAL_NVIC_EnableIRQ(m_irq);
+			//HAL_NVIC_EnableIRQ(m_irq);
 		}
 	}
 }
@@ -198,6 +240,13 @@ void HardwareSerial::OnTxComplete()
 
 	transmit();
 }
+
+
+
+
+//
+//
+//
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *pHandle)
 {

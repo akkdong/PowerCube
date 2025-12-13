@@ -163,7 +163,7 @@ USBPD_StatusTypeDef USBPD_PWR_IF_SetProfile(uint8_t PortNum)
 /* USER CODE BEGIN USBPD_PWR_IF_SetProfile */
   USBPD_StatusTypeDef status = USBPD_ERROR;
   PWR_IF_DEBUG_TRACE(PortNum, "ADVICE: update USBPD_PWR_IF_SetProfile");
-  if (BSP_ERROR_NONE == BSP_USBPD_PWR_VBUSSetVoltage_Fixed(PortNum, 5000, 1500, 3000))
+  if (BSP_ERROR_NONE == BSP_USBPD_PWR_VBUSSetVoltage_Fixed(PortNum, 5000, 3000, 3000))
   {
      status = USBPD_OK;
   }

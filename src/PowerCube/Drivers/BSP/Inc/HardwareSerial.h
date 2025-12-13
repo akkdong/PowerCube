@@ -8,6 +8,7 @@
 #ifndef BSP_INC_HARDWARESERIAL_H_
 #define BSP_INC_HARDWARESERIAL_H_
 
+#include <stm32g4xx_hal_exuart.h>
 #include "stm32g4xx_hal.h"
 #include "stm32g4xx_hal_uart.h"
 #include "RingBuffer.h"
@@ -48,11 +49,11 @@ class HardwareSerial
 	friend void HAL_UART_TxCpltCallback(UART_HandleTypeDef *);
 
 public:
-	HardwareSerial(UART_HandleTypeDef *pHandle, IRQn_Type irq);
+	HardwareSerial();
 	~HardwareSerial();
 
 public:
-	int begin();
+	int begin(UART_ExHandleTypeDef *pHandle, IRQn_Type irq);
 	void end();
 
 	int available();
@@ -94,19 +95,19 @@ protected:
 // HardwareSerial instance
 
 #if ENABLE_UART1
-extern HardwareSerial &Serial1;
+extern HardwareSerial Serial1;
 #endif // ENABLE_UART1
 
 #if ENABLE_UART2
-extern HardwareSerial &Serial2;
+extern HardwareSerial Serial2;
 #endif // ENABLE_UART2
 
 #if ENABLE_UART3
-extern HardwareSerial &Serial3;
+extern HardwareSerial Serial3;
 #endif // ENABLE_UART3
 
 #if ENABLE_UART4
-extern HardwareSerial &Serial4;
+extern HardwareSerial Serial4;
 #endif //ENABLE_UART4
 
 

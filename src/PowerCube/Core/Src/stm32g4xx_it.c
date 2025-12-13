@@ -63,15 +63,13 @@
 /* External variables --------------------------------------------------------*/
 extern PCD_HandleTypeDef hpcd_USB_FS;
 extern DMA_HandleTypeDef hdma_adc1;
+#if 0
 extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
+#endif
 /* USER CODE BEGIN EV */
-#if ENABLE_UART2
-extern SER_HandleTypeDef Serial2;
-#endif
-#if ENABLE_UART3
-extern SER_HandleTypeDef Serial3;
-#endif
+extern UART_ExHandleTypeDef exhuart2;
+extern UART_ExHandleTypeDef exhuart3;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -284,12 +282,12 @@ void USB_LP_IRQHandler(void)
 void USART2_IRQHandler(void)
 {
   /* USER CODE BEGIN USART2_IRQn 0 */
-#if !ENABLE_UART2
+#if ENABLE_UART2
   /* USER CODE END USART2_IRQn 0 */
   HAL_UART_IRQHandler(&huart2);
   /* USER CODE BEGIN USART2_IRQn 1 */
 #else
-  HAL_UART_IRQHandler(&Serial2.huart);
+  HAL_UART_IRQHandler(&exhuart2.huart);
 #endif
   /* USER CODE END USART2_IRQn 1 */
 }
@@ -300,12 +298,12 @@ void USART2_IRQHandler(void)
 void USART3_IRQHandler(void)
 {
   /* USER CODE BEGIN USART3_IRQn 0 */
-#if !ENABLE_UART3
+#if ENABLE_UART3
   /* USER CODE END USART3_IRQn 0 */
   HAL_UART_IRQHandler(&huart3);
   /* USER CODE BEGIN USART3_IRQn 1 */
 #else
-  HAL_UART_IRQHandler(&Serial3.huart);
+  HAL_UART_IRQHandler(&exhuart3.huart);
 #endif
   /* USER CODE END USART3_IRQn 1 */
 }

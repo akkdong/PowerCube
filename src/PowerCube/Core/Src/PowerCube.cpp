@@ -50,9 +50,9 @@ void MX_LPUART1_UART_Init(void);
 void MX_UCPD1_Init(void);
 void MX_I2C1_Init(void);
 void MX_I2C2_Init(void);
-void MX_USART2_UART_Init(void);
+void MX_USART2_UART_Init(UART_HandleTypeDef *pHandle);
 void MX_ADC1_Init(void);
-void MX_USART3_UART_Init(void);
+void MX_USART3_UART_Init(UART_HandleTypeDef *pHandle);
 
 #ifdef __cplusplus
 }
@@ -69,8 +69,13 @@ extern DMA_HandleTypeDef hdma_adc1;
 extern I2C_HandleTypeDef hi2c1;
 extern I2C_HandleTypeDef hi2c2;
 
+#if 0
 extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
+#else
+UART_ExHandleTypeDef exhuart2;
+UART_ExHandleTypeDef exhuart3;
+#endif
 
 
 //
@@ -100,13 +105,13 @@ int main(void)
   MX_UCPD1_Init();
   MX_I2C1_Init();
   MX_I2C2_Init();
-  MX_USART2_UART_Init();
+  MX_USART2_UART_Init(&exhuart2.huart);
   MX_ADC1_Init();
-  MX_USART3_UART_Init();
+  MX_USART3_UART_Init(&exhuart3.huart);
 
   //
-  Serial2.begin(/*UART_HandleTypeDef * */);
-  Serial3.begin(/*UART_HandleTypeDef * */);
+  Serial2.begin(&exhuart2, USART2_IRQn);
+  Serial3.begin(&exhuart3, USART3_IRQn);
 
   // USBPD initialization
   MX_USBPD_Init();

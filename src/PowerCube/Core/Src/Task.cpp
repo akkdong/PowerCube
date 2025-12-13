@@ -22,8 +22,19 @@
 #include "INA226.h"
 #include "HUSB238.h"
 #include "AHT20.H"
+#include "IOPin.h"
+#include "BeaconIndicator.h"
 
-#include "BTHandler.h"
+#include "BluetoothHandler.h"
+#include "LineBuffer.h"
+
+
+#define MQ_MSRC_ADCTASK				0x10000000
+#define MQ_MSRC_VARIOTASK			0x20000000
+#define MQ_MSRC_SHUTDOWNTIMER		0x40000000
+#define MQ_MSRC_EXTINTR				0x80000000
+
+
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -33,10 +44,11 @@
 extern "C" {
 #endif
 
-void MainTaskProc(void const * argument);
-void AdcTaskProc(void const * argument);
+void MainTaskProc(void const *arg);
+void AdcTaskProc(void const *arg);
+void VarioTaskProc(void const *arg);
 
-void ShutdownCallback(void const *arg);
+void ShutdownTimerCallback(void const *arg);
 
 #ifdef __cplusplus
 }
@@ -55,25 +67,66 @@ extern I2CMaster i2c1;
 extern I2CMaster i2c2;
 
 
+//
+
 INA226 ina226(i2c1);
 HUSB238 husb238(i2c1);
 
 BluetoothHandler bt(Serial3);
+BeaconIndicator beacon;
+
+DeviceState devState;
 
 
-GPIO_PinState powerBtnState;
-GPIO_PinState boardBtnState;
-uint8_t btnStateChanged = 0; // BIT 0: Power, BIT 1: Board
+//GPIO_PinState powerBtnState;
+//GPIO_PinState boardBtnState;
+//uint8_t btnStateChanged = 0; // BIT 0: Power, BIT 1: Board
+
+
+const int maxBufSize = 64;
+char bufSerial2[maxBufSize];
+
+LineBuffer lineBuf(bufSerial2, maxBufSize);
 
 
 
-#define MAX_RXSIZE	64
+//char rxData[maxBufSize];
+//uint8_t rxPos, txPos;
 
-char rxData[MAX_RXSIZE];
-uint8_t rxPos, txPos;
+//uint8_t btConnected = 0;
 
-uint8_t btConnected = 0;
-
+// read GPS
+// read sensor
+// update Vario state
+// update GPS state
+// make NMEA sentence
+//
+//
+// LK8EX1 sentence : pressure, altitude, vertical-speed, temperature, battery
+//
+// GPS ---< >-----> BT and/or USB
+//         |
+//    {simulation}
+//         |
+// BT  ----+------> configuration, control, ...
+//
+//
+// DEVICE RUN_MODE
+//   STANDBY
+//   RUN
+//   SHUTDOWN
+//
+// EVENT: POWER-ON, POWER-KEY-PRESS/RELEASE, BOARD-KEY-PRESS/RELEASE,  BT-CONNECTED/DISCONNECTRED, USB-CONNECTED/DISCONECTED
+//
+// STATE
+//     date/time, latitude, longitude, altitude, horizontal-speed
+//     pressure, temperature, vertical-speed, (humidity ?)
+//     input-voltage, output-voltage, current
+//	   power-button state, board-button state
+//	   led1-state, led2-state
+//	   bt-state, vbus-state, usb-state
+//
+//     pdo-list, active-pdo
 
 
 
@@ -85,13 +138,17 @@ osSemaphoreId boardSemaphoreId;
 
 osTimerId shutdownTimerId;
 
+osMessageQDef(MainQueue, 8, uint32_t);
+osMessageQId mainQueueId;
+
+/*
 uint32_t adcValue = 0;
 uint32_t adcVoltage = 0; // mV
 
 uint32_t vbusVoltage = 0;
 uint32_t vbusCurrent = 0;
 uint32_t shuntVoltage = 0;
-
+*/
 
 //static osThreadDef(MainTask, MainTaskProc, osPriorityNormal, 0, 256);
 static const osThreadDef_t os_thread_def_MainTask =
@@ -113,7 +170,17 @@ static const osThreadDef_t os_thread_def_AdcTask =
 	256
 };
 
-static osTimerDef(ShutdownTimer, ShutdownCallback);
+// static osThreadDef(VarioTask, VarioTaskProc, osPriorityNormal, 0, 256);
+static const osThreadDef_t os_thread_def_VarioTask =
+{
+	(char *)"VarioTask",
+	VarioTaskProc,
+	osPriorityNormal,
+	0,
+	256
+};
+
+static osTimerDef(ShutdownTimer, ShutdownTimerCallback);
 
 /*
 static osSemaphoreDef(PowerSemaphore);
@@ -127,18 +194,12 @@ static osSemaphoreDef(BoardSemaphore);
 
 #include <stdarg.h>
 
-char traceBuf[64];
 void Trace(const char *format, ...)
 {
-	if (btConnected)
-	{
-		va_list args;
-		va_start(args, format);
-		vsprintf(traceBuf, format, args);
-		va_end(args);
-
-		Serial3.puts(traceBuf);
-	}
+	va_list args;
+	va_start(args, format);
+	bt.printf(format, args);
+	va_end(args);
 }
 
 #ifdef DEBUG
@@ -146,6 +207,15 @@ void Trace(const char *format, ...)
 #else
 #define TRACE(fmt, ...)
 #endif
+
+
+// LED beacon indicator
+//   - flash LED : body, board
+//   - off: ready to shutdown
+//   - on: device ready
+//   - short blink: device running
+//   - long blink: body only, usb-power activated & usb-host connected
+//
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -166,7 +236,7 @@ void startRTOS()
 	boardSemaphoreId = osSemaphoreCreate(osSemaphore(BoardSemaphore), 1);
 	*/
 
-
+	mainQueueId = osMessageCreate(osMessageQ(MainQueue), NULL);
 
 	// Start scheduler
 	osKernelStart();
@@ -186,17 +256,14 @@ Bme280TwoWire baro;
 
 void MainTaskProc(void const * argument)
 {
-	/* init code for USB_Device */
-	//MX_USB_Device_Init();
-	/* USER CODE BEGIN 5 */
+	//
+	beacon.begin();
+	beacon.off(BeaconIndicator::BeaconType::Body);
+	beacon.off(BeaconIndicator::BeaconType::Board);
 
-	// LED on
-	HAL_GPIO_WritePin(LED_DEVICERDY_GPIO_Port, LED_DEVICERDY_Pin, GPIO_PIN_RESET);
-	// DEVICEs on
-	HAL_GPIO_WritePin(EN_EXTRAPWR_GPIO_Port, EN_EXTRAPWR_Pin, GPIO_PIN_RESET);
-	// Hold PowerPin
-	HAL_GPIO_WritePin(HOLD_POWER_GPIO_Port, HOLD_POWER_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(VBUS_POWER_GPIO_Port, VBUS_POWER_Pin, GPIO_PIN_RESET);
+	ioPin[IOPIN_POWER_DEVICE].on();
+	ioPin[IOPIN_POWER_PERIPH].on();
+	ioPin[IOPIN_POWER_VBUS].off();
 
 	#if 0
 	{
@@ -232,24 +299,23 @@ void MainTaskProc(void const * argument)
 	aht20.begin();
 #endif
 
-	// save latest button state
-	powerBtnState = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
-	boardBtnState = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
+	bt.begin();
+
+
+	//
+	memset(&devState, 0, sizeof(devState));
+
+	devState.btnState[PB_BODY] = ioPin[IOPIN_BODY_INPUT].isOn() ? PB_PRESSED : PB_RELEASED;
+	devState.btnState[PB_BOARD] = ioPin[IOPIN_BOARD_INPUT].isOn() ? PB_PRESSED : PB_RELEASED;
+
+	lineBuf.reset();
 
 	//
 	uint32_t tickCount = HAL_GetTick();
-	uint8_t ledState = 0;
-	uint32_t voltage = adcVoltage;
-	uint32_t lastVBusVoltage = vbusVoltage;
-	uint32_t lastVBusCurrent = vbusCurrent;
-	float temperature = 0, pressure = 0;
-#if ENABLE_AHT20
-	float temp2 = 0, humidity = 0;
-#endif
 
-	rxData[0] = 0;
-	rxPos = 0;
-	txPos = 0;
+	beacon.on(BeaconIndicator::BeaconType::Body);
+	beacon.blink(BeaconIndicator::BeaconType::Board, 500);
+
 
 	/* Infinite loop */
 	for(;;)
@@ -257,17 +323,18 @@ void MainTaskProc(void const * argument)
 		//
 		if (HAL_GetTick() - tickCount > 500)
 		{
-			ledState = 1 - ledState;
-			HAL_GPIO_WritePin(LED_DEVICERDY_GPIO_Port, LED_DEVICERDY_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(LED_BOARD_GPIO_Port, LED_BOARD_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+			//ledState = 1 - ledState;
+			//HAL_GPIO_WritePin(LED_DEVICERDY_GPIO_Port, LED_DEVICERDY_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+			//HAL_GPIO_WritePin(LED_BOARD_GPIO_Port, LED_BOARD_Pin, ledState > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
 			tickCount = HAL_GetTick();
 
-			temperature = baro.getTemperature();
-			pressure = baro.getPressure();
+			devState.temperature = baro.getTemperature();
+			devState.pressure = baro.getPressure();
 
 #if ENABLE_AHT20
-			temp2 = aht20.getTemperature();
-			humidity = aht20.getHumidity();
+			devState.temperature = aht20.getTemperature();
+			devState.humidity = aht20.getHumidity();
 #endif
 		}
 
@@ -275,90 +342,121 @@ void MainTaskProc(void const * argument)
 		if (Serial2.available() > 0)
 		{
 			int ch = Serial2.read();
-			/*
-			Serial3.write(ch);
-			*/
-
-			txPos = (/*ch == '\r' ||*/ ch == '\n') ? 0 : txPos + 1;
+			lineBuf.push(ch);
 		}
 
-		if (Serial3.available() > 0)
+		if (bt.update() > 0)
 		{
-			int ch = Serial3.read();
+			const char *str = bt.getReceiveData();
+			if (strncmp(str, "CONNECT", strlen("CONNECT")) == 0)
+				bt.setState(BluetoothHandler::CONNECTED);
+			else if (strncmp(str, "DISCONNECT", strlen("DISCONNECT")) == 0)
+				bt.setState(BluetoothHandler::PENDING);
 
-			if (ch == '\r' || ch == '\n')
-			{
-				if (strncmp(rxData, "CONNECT", 7) == 0)
-					btConnected = 1;
-				else if (strncmp(rxData, "DISCONNECT", 10) == 0)
-					btConnected = 0;
+			bt.clearData();
+		}
 
-				rxData[0] = 0;
-				rxPos = 0;
-			}
-			else
+		//
+		osEvent event = osMessageGet(mainQueueId, 0);
+		if (event.status == osEventMessage)
+		{
+			// message format: x--- abcd
+			//   -x: updated target: adc, vario, timer, exti irq
+			//   -abcd: updated data: target specific
+			//
+
+			uint32_t data = event.value.v & 0x0000FFFF;
+
+			if (event.value.v & MQ_MSRC_ADCTASK) // message from adc-task
 			{
-				if (rxPos < MAX_RXSIZE - 1)
+				if (data & 1) // updated input voltage
 				{
-					rxData[rxPos] = ch;
-					rxPos += 1;
-					rxData[rxPos] = 0;
+					TRACE("VBUS_i: %u\r\n", devState.voltage);
+				}
+
+				if (data & 2)
+				{
+					TRACE("VBUS_o: %u, %u, %u\r\n", devState.vbusVoltage, devState.vbusCurrent, (uint32_t)(devState.shuntVoltage / 0.02));
 				}
 			}
-		}
-
-		if (txPos == 0 /*&& btConnected*/)
-		{
-			// update voltage
-			if (voltage != adcVoltage)
+			else if (event.value.v & MQ_MSRC_VARIOTASK) // message from vario-task
 			{
-				voltage = adcVoltage;
-
-				Trace("VBUS_i: %lu\r\n", voltage);
-				Trace("BMP280: T = %d, P = %d\r\n", (int)temperature, (int)pressure);
+				TRACE("BMP280: T = %d, P = %d\r\n", (int)devState.temperature, (int)devState.pressure);
 
 #if ENABLE_AHT20
-				Trace("AHT20: T = %d, H = %d\r\n", (int)temp2, (int)humidity);
+				Trace("AHT20: T = %d, H = %d\r\n", (int)devState.temperature, (int)devState.humidity);
 #endif
 			}
-
-			if (lastVBusVoltage != vbusVoltage)
+			else if (event.value.v & MQ_MSRC_SHUTDOWNTIMER) // message from timer-task
 			{
-				lastVBusVoltage = vbusVoltage;
-				lastVBusCurrent = vbusCurrent;
+				TRACE("SHUTDOWN!!\r\n", 0);
+				osDelay(200);
 
-				Trace("VBUS_o: %lu, %lu, %lu\r\n", lastVBusVoltage, lastVBusCurrent, (uint32_t)(shuntVoltage / 0.02));
+				beacon.off(BeaconIndicator::BeaconType::Body);
+				beacon.blink(BeaconIndicator::BeaconType::Board, 200);
+				ioPin[IOPIN_POWER_DEVICE].off();
+				/*
+				ioPin[IOPIN_POWER_PERIPH].off();
+				*/
+				break;
 			}
-
-			// check & update key-state
-			if (btnStateChanged & 0x01)
+			else if (event.value.v & MQ_MSRC_EXTINTR) // message from exti irq
 			{
-				powerBtnState = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
-				btnStateChanged &= ~0x01;
+				if (devState.btnUpdateMask & (1 << PB_BODY))
+				{
+					TRACE("BODY Button: %s\r\n", devState.btnState[PB_BODY] == PB_PRESSED ? "On" : "Off");
+					devState.btnUpdateMask &= ~(1 << PB_BODY);
 
-				if (powerBtnState == GPIO_PIN_RESET)
-				{
-					osTimerStart(shutdownTimerId, 5000);
-				}
-				else
-				{
-					osTimerStop(shutdownTimerId);
+					if (devState.btnState[PB_BODY] == PB_PRESSED)
+						osTimerStart(shutdownTimerId, 4000);
+					else
+						osTimerStop(shutdownTimerId);
+
 				}
 
-				Trace("Power Button: %s\r\n", powerBtnState == GPIO_PIN_RESET ? "On" : "Off");
-			}
-
-			if (btnStateChanged & 0x02)
-			{
-				boardBtnState = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
-				btnStateChanged &= ~0x02;
-
-				Trace("Board Button: %s\r\n", boardBtnState == GPIO_PIN_RESET ? "Off" : "On");
+				if (devState.btnUpdateMask & (1 << PB_BOARD))
+				{
+					TRACE("BOARD Button: %s\r\n", devState.btnState[PB_BOARD] == PB_PRESSED ? "On" : "Off");
+					devState.btnUpdateMask &= ~(1 << PB_BODY);
+				}
 			}
 		}
+
+		if (lineBuf.hasCompleteLine() && lineBuf.getLength() > 0)
+		{
+			// parse NMEA sentence & forward to usb-serial and/or blue-tooth
+			//
+			// parse NMEA
+			// ....
+			//
+
+			/*
+			cdc.puts(lineBuf, true);
+			*/
+			bt.puts(lineBuf, true);
+
+			lineBuf.reset();
+		}
 	}
+
+	//
+	while(1)
+		osDelay(100);
 }
 
+
+
+
+//
+// ADC Task
+//
+
+uint32_t adcValue = 0;
+uint32_t adcVoltage = 0; // mV
+
+uint32_t vbusVoltage = 0;
+uint32_t vbusCurrent = 0;
+uint32_t shuntVoltage = 0;
 
 
 void AdcTaskProc(void const * argument)
@@ -392,47 +490,37 @@ void AdcTaskProc(void const * argument)
 			if (adcVoltage > 1000 && !husb238Attached)
 			{
 				HUSB238::Capability *pCap = husb238.getCapabilities();
-				char line[32];
-
-				sprintf(line, "5V : %u\r\n", pCap->ma_5V);
-				Serial3.puts(line);
-				sprintf(line, "9V : %u\r\n", pCap->ma_9V);
-				Serial3.puts(line);
-				sprintf(line, "12V : %u\r\n", pCap->ma_12V);
-				Serial3.puts(line);
-				sprintf(line, "15V : %u\r\n", pCap->ma_15V);
-				Serial3.puts(line);
-				sprintf(line, "18V : %u\r\n", pCap->ma_18V);
-				Serial3.puts(line);
-				sprintf(line, "20V : %u\r\n", pCap->ma_20V);
-				Serial3.puts(line);
+				TRACE("5V : %u\r\n", pCap->ma_5V);
+				TRACE("9V : %u\r\n", pCap->ma_9V);
+				TRACE("12V : %u\r\n", pCap->ma_12V);
+				TRACE("15V : %u\r\n", pCap->ma_15V);
+				TRACE("18V : %u\r\n", pCap->ma_18V);
+				TRACE("20V : %u\r\n", pCap->ma_20V);
 
 				husb238Attached = true;
 				//HAL_GPIO_WritePin(VBUS_POWER_GPIO_Port, VBUS_POWER_Pin, GPIO_PIN_SET);
 
 				//
 				husb238.updateStatus();
-				uint8_t v = husb238.getActiveVoltage(false);
-				uint16_t c = husb238.getActiveCurrent(false);
-				sprintf(line, ">> %u V, %u mA\r\n", v, c);
-				Serial3.puts(line);
+				devState.voltage = husb238.getActiveVoltage(false);
+				devState.current = husb238.getActiveCurrent(false);
+				TRACE(">> %u V, %u mA\r\n", devState.voltage, devState.current);
 
 				//
-#if 0
+#if 0 // TEST: changing voltage
 				osDelay(1000);
 				husb238.setVoltage(HUSB238::PDO_9V);
 				osDelay(1000);
 				husb238.updateStatus();
-				v = husb238.getActiveVoltage(false);
-				c = husb238.getActiveCurrent(false);
-				sprintf(line, "<< %u V, %u mA\r\n", v, c);
-				Serial3.puts(line);
+				uint32_t v = husb238.getActiveVoltage(false);
+				uint32_t c = husb238.getActiveCurrent(false);
+				TRACE("<< %u V, %u mA\r\n", v, c);
 #endif
 			}
 			else if (adcVoltage < 1000 && husb238Attached)
 			{
 				husb238Attached = false;
-				HAL_GPIO_WritePin(VBUS_POWER_GPIO_Port, VBUS_POWER_Pin, GPIO_PIN_RESET);
+				//HAL_GPIO_WritePin(VBUS_POWER_GPIO_Port, VBUS_POWER_Pin, GPIO_PIN_RESET);
 			}
 
 			//
@@ -442,13 +530,22 @@ void AdcTaskProc(void const * argument)
 
 			//
 			lastTick = HAL_GetTick();
+
+			uint32_t info = MQ_MSRC_ADCTASK | 3;
+			osMessagePut(mainQueueId, info, osWaitForever);
 		}
 
 		//
 	}
 }
 
-
+void VarioTaskProc(void const *arg)
+{
+	while (1)
+	{
+		osDelay(100);
+	}
+}
 
 
 
@@ -462,30 +559,45 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if (GPIO_Pin == PB_POWER_Pin)
 	{
-		GPIO_PinState state = HAL_GPIO_ReadPin(PB_POWER_GPIO_Port, PB_POWER_Pin);
-		if (powerBtnState != state)
-		{
-			//osSemaphoreRelease(powerSemaphoreId);
-			btnStateChanged |= 0x01;
-		}
+		devState.btnState[PB_BODY] = ioPin[IOPIN_BODY_INPUT].isOn() ? PB_PRESSED : PB_RELEASED;
+		devState.btnUpdateMask |= (1 << PB_BODY);
+
+		uint32_t info = MQ_MSRC_EXTINTR | (1 << PB_BODY);
+		osMessagePut(mainQueueId, info, osWaitForever);
 	}
 	else if (GPIO_Pin == PB_BOARD_Pin)
 	{
+		devState.btnState[PB_BOARD] = ioPin[IOPIN_BOARD_INPUT].isOn() ? PB_PRESSED : PB_RELEASED;
+		devState.btnUpdateMask |= (1 << PB_BOARD);
+
+		/*
 		GPIO_PinState state = HAL_GPIO_ReadPin(PB_BOARD_GPIO_Port, PB_BOARD_Pin);
 		if (boardBtnState != state)
 		{
 			//osSemaphoreRelease(boardSemaphoreId);
 			btnStateChanged |= 0x02;
 		}
+		*/
+
+		uint32_t info = MQ_MSRC_EXTINTR | (1 << PB_BOARD);
+		osMessagePut(mainQueueId, info, osWaitForever);
 	}
 }
 
 
-void ShutdownCallback(void const *arg)
+void ShutdownTimerCallback(void const *arg)
 {
+	/*
 	//osTimerStop(shutdownTimerId);
 
 	Trace("SHUTDOWN!!\r\n");
 	osDelay(200);
-	HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin, GPIO_PIN_RESET);
+	//HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin, GPIO_PIN_RESET);
+	beacon.off(BeaconIndicator::BeaconType::Body);
+	ioPin[IOPIN_POWER_DEVICE].off();
+	ioPin[IOPIN_POWER_PERIPH].off();
+	*/
+
+	uint32_t info = MQ_MSRC_SHUTDOWNTIMER;
+	osMessagePut(mainQueueId, info, osWaitForever);
 }
