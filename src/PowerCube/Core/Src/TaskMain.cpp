@@ -27,6 +27,9 @@
 #include "LineBuffer.h"
 #include "VarioSentence.h"
 
+#include "nmea/NmeaParser.h"
+
+
 
 //
 //
@@ -57,6 +60,7 @@ LineBuffer lineBuf(bufSerial2, maxBufSize);
 LineBuffer varioBuf(bufVario, maxBufSize);
 
 VarioSentence varioSentense(VSENTENCE_LK8);
+NmeaParser nmeaParser;
 
 
 
@@ -117,6 +121,7 @@ void MainTaskProc(void const * argument)
 	devState.btnState[PB_BOARD] = ioPin[IOPIN_BOARD_INPUT].isOn() ? PB_PRESSED : PB_RELEASED;
 
 	lineBuf.reset();
+	nmeaParser.reset();
 
 	//
 
@@ -132,6 +137,17 @@ void MainTaskProc(void const * argument)
 		{
 			int ch = Serial2.read();
 			lineBuf.push(ch);
+
+			if (nmeaParser.update(ch) > 0) // 1: GPS, 2: VARIO(UNUSED), 3: KEY(UNUSED)
+			{
+				devState.latitude = nmeaParser.getLatitude();
+				devState.longitude = nmeaParser.getLongitude();
+				devState.altitude = nmeaParser.getAltitude();
+				devState.speed = nmeaParser.getSpeed();
+				devState.now = nmeaParser.getDateTime();
+
+				// do what?
+			}
 		}
 
 		if (bt.update() > 0)
