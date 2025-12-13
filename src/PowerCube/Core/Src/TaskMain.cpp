@@ -25,7 +25,7 @@
 
 #include "BluetoothHandler.h"
 #include "LineBuffer.h"
-
+#include "VarioSentence.h"
 
 
 //
@@ -44,10 +44,51 @@ extern osTimerId shutdownTimerId;
 extern osMessageQId mainQueueId;
 
 
+//
+//
+//
+
 const int maxBufSize = 64;
+
 char bufSerial2[maxBufSize];
+char bufVario[maxBufSize];
 
 LineBuffer lineBuf(bufSerial2, maxBufSize);
+LineBuffer varioBuf(bufVario, maxBufSize);
+
+VarioSentence varioSentense(VSENTENCE_LK8);
+
+
+
+////////////////////////////////////////////////////////////////////////////
+//
+
+void flushVarioSentence()
+{
+	// make vario sentence
+	varioSentense.begin(
+			devState.altitude,
+			devState.varioSpeed,
+			devState.temperature,
+			devState.pressure,
+			devState.voltage);
+
+	// copy to line-buffer
+	varioBuf.reset();
+	while (varioSentense.available())
+	{
+		varioBuf.push(varioSentense.read());
+
+		if (varioBuf.hasCompleteLine() && varioBuf.getLength() > 0)
+			break;
+	}
+
+	// transfer a sentence to usb-serial and/or bt
+	/*
+	cdc.puts(varioBuf, true);
+	*/
+	bt.puts(varioBuf, true);
+}
 
 
 
@@ -129,11 +170,12 @@ void MainTaskProc(void const * argument)
 			}
 			else if (event.value.v & MQ_MSRC_VARIOTASK) // message from vario-task
 			{
-				TRACE("BMP280: T = %d, P = %d\r\n", (int)devState.temperature, (int)devState.pressure);
-
+				//TRACE("BMP280: T = %d, P = %d\r\n", (int)devState.temperature, (int)devState.pressure);
 #if ENABLE_AHT20
 				TRACE("AHT20: T = %d, H = %d\r\n", (int)devState.temperature, (int)devState.humidity);
 #endif
+
+				flushVarioSentence();
 			}
 			else if (event.value.v & MQ_MSRC_SHUTDOWNTIMER) // message from timer-task
 			{

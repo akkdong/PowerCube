@@ -43,7 +43,7 @@ extern osMessageQId mainQueueId;
 
 
 Variometer vario;
-VarioSentence varioSentense(VSENTENCE_LK8);
+
 
 
 //
@@ -72,7 +72,7 @@ void VarioTaskProc(void const *arg)
 #endif
 
 	vario.begin(CreateBarometer(), CreateVarioFilter());
-
+	uint32_t lastTick = HAL_GetTick();
 
 	while (1)
 	{
@@ -84,8 +84,13 @@ void VarioTaskProc(void const *arg)
 			devState.varioSpeed = vario.getVelocity();
 
 			//
-			uint32_t info = MQ_MSRC_VARIOTASK | 1; // vario-state changed
-			osMessagePut(mainQueueId, info, osWaitForever);
+			if (HAL_GetTick() - lastTick > 500)
+			{
+				uint32_t info = MQ_MSRC_VARIOTASK | 1; // vario-state changed
+				osMessagePut(mainQueueId, info, osWaitForever);
+
+				lastTick = HAL_GetTick();
+			}
 		}
 
 		//
