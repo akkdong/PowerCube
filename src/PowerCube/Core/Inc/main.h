@@ -50,60 +50,6 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
-enum PowerObjectType
-{
-	PO_ACTIVE,
-	PO_5V,
-	PO_9V,
-	PO_12V,
-	PO_15V,
-	PO_18V,
-	PO_24V,
-	PO_COUNT
-};
-
-typedef struct __PowerObject
-{
-	uint32_t voltage;
-	uint32_t current;
-} PowerObject;
-
-
-enum PB_State
-{
-	PB_RELEASED = 0,
-	PB_PRESSED = 1
-};
-
-enum PB_Type
-{
-	PB_BODY = 0,
-	PB_BOARD = 1,
-
-	PB_COUNT
-};
-
-typedef struct __DeviceState
-{
-	// Sensor data: GPS, Pressure, Humidity
-	uint32_t now;
-	float latitude, longitude, altitude, speed;
-	float temperature, pressure, humidity, varioSpeed;
-
-	// Input Power
-	uint32_t voltage, current;
-	PowerObject po[PO_COUNT];
-
-	// Output Power
-	uint32_t shuntVoltage;
-	uint32_t vbusVoltage;
-	uint32_t vbusCurrent;
-
-	// Push Button
-	uint32_t btnState[PB_COUNT];
-	uint32_t btnUpdateMask;
-
-} DeviceState;
 
 /* USER CODE END ET */
 
@@ -121,6 +67,9 @@ typedef struct __DeviceState
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+
+
+
 
 /* USER CODE END EFP */
 
