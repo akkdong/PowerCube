@@ -62,6 +62,20 @@
   */
 
 /* USER CODE BEGIN PRIVATE_DEFINES */
+
+// Control Line State bits
+#define CLS_DTR   (1 << 0)
+#define CLS_RTS   (1 << 1)
+
+/*
+ * The value USB_CDC_TRANSMIT_TIMEOUT is defined in terms of HAL_GetTick() units.
+ * Typically it is 1ms value. The timeout determines when we would consider the
+ * host "too slow" and threat the USB CDC port as disconnected.
+ */
+#ifndef USB_CDC_TRANSMIT_TIMEOUT
+  #define USB_CDC_TRANSMIT_TIMEOUT 3
+#endif
+
 /* USER CODE END PRIVATE_DEFINES */
 
 /**
@@ -88,12 +102,34 @@
 /* Create buffer for reception and transmission           */
 /* It's up to user to redefine and/or remove those define */
 /** Received data over USB are stored in this buffer      */
+#if USE_USERBUFFER
 uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
 
 /** Data to send over USB CDC are stored in this buffer   */
 uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
+#endif
 
 /* USER CODE BEGIN PRIVATE_VARIABLES */
+
+static bool CDC_initialized = false;
+static bool CDC_DTR_enabled = true;
+
+CDC_TransmitQueue_TypeDef TransmitQueue;
+CDC_ReceiveQueue_TypeDef ReceiveQueue;
+
+__IO bool dtrState = false; /* lineState */
+__IO bool rtsState = false;
+__IO bool receivePended = true;
+static uint32_t transmitStart = 0;
+
+
+USBD_CDC_LineCodingTypeDef lineCoding =
+{
+	115200,	// baud rate
+	0x00,	// stop bits: 1
+	0x00,	// parity: none
+	0x08	// no of bits: 8
+};
 
 /* USER CODE END PRIVATE_VARIABLES */
 
@@ -129,6 +165,24 @@ static int8_t CDC_TransmitCplt_FS(uint8_t *pbuf, uint32_t *Len, uint8_t epnum);
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_DECLARATION */
 
+uint8_t USBD_CDC_ClearBuffer(USBD_HandleTypeDef *pdev)
+{
+#if OBSOLTE
+  /* Suspend or Resume USB Out process */
+  if (pdev->pClassDataCmsit[pdev->classId] != NULL) {
+    /* Prepare Out endpoint to receive next packet */
+    USBD_LL_PrepareReceive(pdev, CDC_OUT_EP, 0, 0);
+    return (uint8_t)USBD_OK;
+  } else {
+    return (uint8_t)USBD_FAIL;
+  }
+#else
+  return (uint8_t)USBD_OK;
+#endif
+}
+
+
+
 /* USER CODE END PRIVATE_FUNCTIONS_DECLARATION */
 
 /**
@@ -153,8 +207,18 @@ static int8_t CDC_Init_FS(void)
 {
   /* USER CODE BEGIN 3 */
   /* Set Application Buffers */
+#if USE_USERBUFFER
   USBD_CDC_SetTxBuffer(&hUsbDeviceFS, UserTxBufferFS, 0);
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, UserRxBufferFS);
+#endif
+
+  CDC_TransmitQueue_Init(&TransmitQueue);
+  CDC_ReceiveQueue_Init(&ReceiveQueue);
+  receivePended = true;
+  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, CDC_ReceiveQueue_ReserveBlock(&ReceiveQueue));
+
+  CDC_initialized = true;
+
   return (USBD_OK);
   /* USER CODE END 3 */
 }
@@ -166,6 +230,9 @@ static int8_t CDC_Init_FS(void)
 static int8_t CDC_DeInit_FS(void)
 {
   /* USER CODE BEGIN 4 */
+
+  CDC_initialized = false;
+
   return (USBD_OK);
   /* USER CODE END 4 */
 }
@@ -220,15 +287,25 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
   /* 6      | bDataBits  |   1   | Number Data bits (5, 6, 7, 8 or 16).          */
   /*******************************************************************************/
     case CDC_SET_LINE_CODING:
-
+        lineCoding.bitrate    = (uint32_t)(pbuf[0] | (pbuf[1] << 8) | (pbuf[2] << 16) | (pbuf[3] << 24));
+        lineCoding.format     = pbuf[4];
+        lineCoding.paritytype = pbuf[5];
+        lineCoding.datatype   = pbuf[6];
     break;
 
     case CDC_GET_LINE_CODING:
-
+        pbuf[0] = (uint8_t)(lineCoding.bitrate);
+        pbuf[1] = (uint8_t)(lineCoding.bitrate >> 8);
+        pbuf[2] = (uint8_t)(lineCoding.bitrate >> 16);
+        pbuf[3] = (uint8_t)(lineCoding.bitrate >> 24);
+        pbuf[4] = lineCoding.format;
+        pbuf[5] = lineCoding.paritytype;
+        pbuf[6] = lineCoding.datatype;
     break;
 
     case CDC_SET_CONTROL_LINE_STATE:
-
+    	dtrState = (CDC_DTR_enabled) ? (((USBD_SetupReqTypedef *)pbuf)->wValue & CLS_DTR) : true;
+    	rtsState = (((USBD_SetupReqTypedef *)pbuf)->wValue & CLS_RTS);
     break;
 
     case CDC_SEND_BREAK:
@@ -261,8 +338,19 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
+#if USE_USERBUFFER
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+#endif
+
+  /* It always contains required amount of free space for writing */
+  CDC_ReceiveQueue_CommitBlock(&ReceiveQueue, (uint16_t)(*Len));
+  receivePended = false;
+  /* If enough space in the queue for a full buffer then continue receive */
+  if (!CDC_resume_receive()) {
+    USBD_CDC_ClearBuffer(&hUsbDeviceFS);
+  }
+
   return (USBD_OK);
   /* USER CODE END 6 */
 }
@@ -311,11 +399,78 @@ static int8_t CDC_TransmitCplt_FS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
   UNUSED(Buf);
   UNUSED(Len);
   UNUSED(epnum);
+  transmitStart = 0;
+  CDC_TransmitQueue_CommitRead(&TransmitQueue);
+  CDC_continue_transmit();
   /* USER CODE END 13 */
   return result;
 }
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
+
+
+bool CDC_connected()
+{
+  /* Save the transmitStart value in a local variable to avoid twice reading - fix #478 */
+  uint32_t transmitTime = transmitStart;
+  if (transmitTime) {
+    transmitTime = HAL_GetTick() - transmitTime;
+  }
+  return ((hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED) &&
+          (transmitTime < USB_CDC_TRANSMIT_TIMEOUT) /*&& dtrState*/);
+}
+
+void CDC_continue_transmit(void)
+{
+  uint16_t size;
+  uint8_t *buffer;
+  USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef *) hUsbDeviceFS.pClassData;
+  /*
+   * TS: This method can be called both in the main thread
+   * (via USBSerial::write) and in the IRQ stream (via USBD_CDC_TransmistCplt),
+   * BUT the main thread cannot pass this condition while waiting for a IRQ!
+   * This is not possible because TxState is not zero while waiting for data
+   * transfer ending! The IRQ thread is uninterrupted, since its priority
+   * is higher than that of the main thread. So this method is thread safe.
+   */
+  if (hcdc->TxState == 0U) {
+    buffer = CDC_TransmitQueue_ReadBlock(&TransmitQueue, &size);
+    if (size > 0) {
+      transmitStart = HAL_GetTick();
+      USBD_CDC_SetTxBuffer(&hUsbDeviceFS, buffer, size);
+      /*
+       * size never exceed PMA buffer and USBD_CDC_TransmitPacket make full
+       * copy of block in PMA, so no need to worry about buffer damage
+       */
+      USBD_CDC_TransmitPacket(&hUsbDeviceFS);
+    }
+  }
+}
+
+bool CDC_resume_receive(void)
+{
+  /*
+   * TS: main and IRQ threads can't pass it at same time, because
+   * IRQ may occur only if receivePended is true. So it is thread-safe!
+   */
+  if (!receivePended) {
+    uint8_t *block = CDC_ReceiveQueue_ReserveBlock(&ReceiveQueue);
+    if (block != NULL) {
+      receivePended = true;
+      /* Set new buffer */
+      USBD_CDC_SetRxBuffer(&hUsbDeviceFS, block);
+      USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+      return true;
+    }
+  }
+  return false;
+}
+
+void CDC_enableDTR(bool enable)
+{
+  CDC_DTR_enabled = enable;
+}
+
 
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
 

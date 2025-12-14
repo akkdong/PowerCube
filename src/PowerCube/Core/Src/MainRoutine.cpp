@@ -104,7 +104,7 @@ Bme280TwoWire baro;
 AHT20 aht20(i2c2);
 
 BeaconIndicator beacon;
-ADCReader adc(hadc1, 40.2 / 200 + 40.2);
+ADCReader adc(hadc1, 40.2 / (200 + 40.2));
 
 BluetoothHandler bt(Serial3);
 
@@ -293,17 +293,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 void ShutdownTimerCallback(void const *arg)
 {
-	/*
-	//osTimerStop(shutdownTimerId);
-
-	Trace("SHUTDOWN!!\r\n");
-	osDelay(200);
-	//HAL_GPIO_WritePin(GPIOB, HOLD_POWER_Pin, GPIO_PIN_RESET);
-	beacon.off(BeaconIndicator::BeaconType::Body);
-	ioPin[IOPIN_POWER_DEVICE].off();
-	ioPin[IOPIN_POWER_PERIPH].off();
-	*/
-
 	uint32_t info = MQ_MSRC_SHUTDOWNTIMER;
 	osMessagePut(mainQueueId, info, osWaitForever);
 }
@@ -321,7 +310,7 @@ void Trace(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	bt.printf(format, args);
+	bt.trace(format, args);
 	va_end(args);
 }
 

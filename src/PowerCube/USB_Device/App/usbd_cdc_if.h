@@ -31,7 +31,7 @@
 #include "usbd_cdc.h"
 
 /* USER CODE BEGIN INCLUDE */
-
+#include "cdc_queue.h"
 /* USER CODE END INCLUDE */
 
 /** @addtogroup STM32_USB_OTG_DEVICE_LIBRARY
@@ -95,6 +95,9 @@ extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
 
 /* USER CODE BEGIN EXPORTED_VARIABLES */
 
+extern CDC_TransmitQueue_TypeDef TransmitQueue;
+extern CDC_ReceiveQueue_TypeDef ReceiveQueue;
+
 /* USER CODE END EXPORTED_VARIABLES */
 
 /**
@@ -109,6 +112,11 @@ extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
 uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
 /* USER CODE BEGIN EXPORTED_FUNCTIONS */
+
+void CDC_continue_transmit(void);
+bool CDC_resume_receive(void);
+bool CDC_connected(void);
+void CDC_enableDTR(bool enable);
 
 /* USER CODE END EXPORTED_FUNCTIONS */
 

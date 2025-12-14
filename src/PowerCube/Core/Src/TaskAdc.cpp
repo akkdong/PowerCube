@@ -75,28 +75,25 @@ void AdcTaskProc(void const * argument)
 		if (devState.voltage != voltage)
 		{
 			//
-			devState.voltage = voltage;
-
-			//
-			if (!powerAttached && voltage > 3000)
+			if (!powerAttached && voltage > 1500)
 			{
 				HUSB238::Capability *pCap = husb238.getCapabilities();
-				TRACE("5V : %u\r\n", pCap->ma_5V);
+				TRACE("USBPD,CAP,5V,%umA\r\n", pCap->ma_5V);
 				devState.po[PO_5V].voltage = 5;
 				devState.po[PO_5V].current = pCap->ma_5V;
-				TRACE("9V : %u\r\n", pCap->ma_9V);
+				TRACE("USBPD,CAP,9V,%umA\r\n", pCap->ma_9V);
 				devState.po[PO_5V].voltage = 9;
 				devState.po[PO_5V].current = pCap->ma_9V;
-				TRACE("12V : %u\r\n", pCap->ma_12V);
+				TRACE("USBPD,CAP,12V,%umA\r\n", pCap->ma_12V);
 				devState.po[PO_5V].voltage = 12;
 				devState.po[PO_5V].current = pCap->ma_12V;
-				TRACE("15V : %u\r\n", pCap->ma_15V);
+				TRACE("USBPD,CAP,15V,%umA\r\n", pCap->ma_15V);
 				devState.po[PO_5V].voltage = 15;
 				devState.po[PO_5V].current = pCap->ma_15V;
-				TRACE("18V : %u\r\n", pCap->ma_18V);
+				TRACE("USBPD,CAP,18V,%umA\r\n", pCap->ma_18V);
 				devState.po[PO_5V].voltage = 18;
 				devState.po[PO_5V].current = pCap->ma_18V;
-				TRACE("20V : %u\r\n", pCap->ma_20V);
+				TRACE("USBPD,CAP,20V,%umA\r\n", pCap->ma_20V);
 				devState.po[PO_5V].voltage = 20;
 				devState.po[PO_5V].current = pCap->ma_20V;
 
@@ -104,7 +101,7 @@ void AdcTaskProc(void const * argument)
 				husb238.updateStatus();
 				devState.po[PO_ACTIVE].voltage = husb238.getActiveVoltage(false);
 				devState.po[PO_ACTIVE].current = husb238.getActiveCurrent(false);
-				TRACE(">> %u V, %u mA\r\n", devState.voltage, devState.current);
+				TRACE("USBPD,ACTIVE,%uV,%umA\r\n", devState.voltage, devState.current);
 
 				//
 #if 0 // TEST: changing voltage
@@ -114,21 +111,23 @@ void AdcTaskProc(void const * argument)
 				husb238.updateStatus();
 				uint32_t v = husb238.getActiveVoltage(false);
 				uint32_t c = husb238.getActiveCurrent(false);
-				TRACE("<< %u V, %u mA\r\n", v, c);
+				TRACE("USBPD,ACTIVE,%uV,%umA\r\n", v, c);
 #endif
 
 				powerAttached = true;
-
-				//
-				uint32_t info = MQ_MSRC_ADCTASK | 1; // input-voltage changed
-				osMessagePut(mainQueueId, info, osWaitForever);
 			}
-			else if (powerAttached && voltage < 3000)
+			else if (powerAttached && voltage < 1500)
 			{
 				memset(&devState.po[0], 0, sizeof(devState.po));
 
 				powerAttached = false;
 			}
+
+			//
+			devState.voltage = voltage;
+
+			uint32_t info = MQ_MSRC_ADCTASK | 1; // input-voltage changed
+			osMessagePut(mainQueueId, info, osWaitForever);
 		}
 
 		//

@@ -22,8 +22,10 @@ bool ADCReader::start()
 {
 	HAL_StatusTypeDef status;
 	status = HAL_ADCEx_Calibration_Start(&m_hadc, ADC_SINGLE_ENDED);
+	/*
 	if (status != HAL_OK)
 		return false;
+	*/
 
 	status = HAL_ADC_Start_DMA(&m_hadc, (uint32_t *)&m_value, 1);
 	return (status != HAL_OK);

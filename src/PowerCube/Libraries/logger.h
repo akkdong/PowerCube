@@ -14,24 +14,34 @@ extern "C" {
 //
 //
 
+#if OBSOLETE
+
 int     trace_putc(uint8_t c);
 int     trace_puts(const char* str);
 int     trace_printf(const char* format, ...);
 
 int     _log_printf(int level, const char* format, ...);
 
+#else
+
+extern int Trace(const char* format, ...);
+
+#define _log_printf(level, format, ...)	Trace(format, ##__VA_ARGS__);
+
+#endif
+
 //
 //
 //
 
-#define LOG_LEVEL_ERROR     (0)
-#define LOG_LEVEL_WARNING   (1)
-#define LOG_LEVEL_INFO      (2)
-#define LOG_LEVEL_VERBOSE   (3)
-#define LOG_LEVEL_DEBUG     (4)
+#define LOG_LEVEL_ERROR     (1)
+#define LOG_LEVEL_WARNING   (2)
+#define LOG_LEVEL_INFO      (3)
+#define LOG_LEVEL_VERBOSE   (4)
+#define LOG_LEVEL_DEBUG     (5)
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL           -1 // LOG_LEVEL_INFO
+#define LOG_LEVEL           (0) // LOG_LEVEL_INFO
 #endif
 
 // ERROR

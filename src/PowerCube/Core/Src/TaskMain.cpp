@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include "HardwareSerial.h"
+#include "USBSerial.h"
 #include "BMP280.h"
 #include "INA226.h"
 #include "HUSB238.h"
@@ -88,10 +89,12 @@ void flushVarioSentence()
 	}
 
 	// transfer a sentence to usb-serial and/or bt
-	/*
-	cdc.puts(varioBuf, true);
-	*/
+	if (SerialUSB)
+		SerialUSB.puts(varioBuf, true);
+
+	#if ROUTE_TO_BLUETOOTH
 	bt.puts(varioBuf, true);
+	#endif
 }
 
 
@@ -176,26 +179,28 @@ void MainTaskProc(void const * argument)
 			{
 				if (data & 1) // updated input voltage
 				{
-					TRACE("VBUS_i: %u\r\n", devState.voltage);
+					TRACE("IVBUS,V,%u\r\n", devState.voltage);
 				}
 
 				if (data & 2)
 				{
-					TRACE("VBUS_o: %u, %u, %u\r\n", devState.vbusVoltage, devState.vbusCurrent, (uint32_t)(devState.shuntVoltage / 0.02));
+					TRACE("OVBUS,V,%u,C,%u,VS,%u\r\n", devState.vbusVoltage, devState.vbusCurrent, (uint32_t)(devState.shuntVoltage / 0.02));
 				}
 			}
 			else if (event.value.v & MQ_MSRC_VARIOTASK) // message from vario-task
 			{
-				//TRACE("BMP280: T = %d, P = %d\r\n", (int)devState.temperature, (int)devState.pressure);
+#if DEBUG_BMP280 || 1
+				TRACE("BMP280,T,%d,P,%d\r\n", (int)devState.temperature, (int)devState.pressure);
+#endif
 #if ENABLE_AHT20
-				TRACE("AHT20: T = %d, H = %d\r\n", (int)devState.temperature, (int)devState.humidity);
+				TRACE("AHT20,T,%d,H,%d\r\n", (int)devState.temperature, (int)devState.humidity);
 #endif
 
 				flushVarioSentence();
 			}
 			else if (event.value.v & MQ_MSRC_SHUTDOWNTIMER) // message from timer-task
 			{
-				TRACE0("SHUTDOWN!!\r\n");
+				TRACE("SHUTDOWN\r\n");
 				osDelay(200);
 
 				beacon.off(BeaconIndicator::BeaconType::Body);
@@ -210,7 +215,7 @@ void MainTaskProc(void const * argument)
 			{
 				if (devState.btnUpdateMask & (1 << PB_BODY))
 				{
-					TRACE("BODY Button: %s\r\n", devState.btnState[PB_BODY] == PB_PRESSED ? "On" : "Off");
+					TRACE("BTN,BODY,%s\r\n", devState.btnState[PB_BODY] == PB_PRESSED ? "On" : "Off");
 					devState.btnUpdateMask &= ~(1 << PB_BODY);
 
 					if (devState.btnState[PB_BODY] == PB_PRESSED)
@@ -222,9 +227,11 @@ void MainTaskProc(void const * argument)
 
 				if (devState.btnUpdateMask & (1 << PB_BOARD))
 				{
-					TRACE("BOARD Button: %s\r\n", devState.btnState[PB_BOARD] == PB_PRESSED ? "On" : "Off");
+					TRACE("BTN,BOARD,%s\r\n", devState.btnState[PB_BOARD] == PB_PRESSED ? "On" : "Off");
 					devState.btnUpdateMask &= ~(1 << PB_BODY);
 				}
+
+				devState.btnUpdateMask = 0;
 			}
 		}
 
@@ -236,10 +243,11 @@ void MainTaskProc(void const * argument)
 			// ....
 			//
 
-			/*
-			cdc.puts(lineBuf, true);
-			*/
+			if (SerialUSB)
+				SerialUSB.puts(lineBuf, true);
+			#if ROUTE_TO_BLUETOOTH
 			bt.puts(lineBuf, true);
+			#endif
 
 			lineBuf.reset();
 		}

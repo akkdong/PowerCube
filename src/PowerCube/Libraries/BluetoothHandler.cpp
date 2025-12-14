@@ -36,6 +36,19 @@ char BluetoothHandler::m_temp[];
 
 
 
+//
+//
+//
+
+static uint8_t NumToHexa(uint8_t num)
+{
+	if (num < 10)
+		return '0' + num;
+	return 'A' + (num - 10);
+}
+
+
+
 //////////////////////////////////////////////////////////////////////////////
 //
 
@@ -211,6 +224,42 @@ int BluetoothHandler::printf(const char *fmt, va_list &args)
 			osMutexWait(m_mutexId, osWaitForever);
 
 		write(fmt, args);
+
+		if (m_mutexId)
+			osMutexRelease(m_mutexId);
+	}
+
+	return 0;
+}
+
+const char *dbgStatement = "$DBG,";
+
+int BluetoothHandler::trace(const char *fmt, va_list &args)
+{
+	if (m_state == CONNECTED)
+	{
+		if (m_mutexId)
+			osMutexWait(m_mutexId, osWaitForever);
+
+		strcpy(m_temp, dbgStatement);
+		char *ptr = &m_temp[0] + strlen(dbgStatement);
+		/*int len =*/ vsprintf(ptr, fmt, args);
+
+		uint8_t crc = 0;
+		ptr = &m_temp[1];
+		while (*ptr && *ptr != '\r' && *ptr != '\n')
+		{
+			crc = crc ^ (uint8_t)ptr[0];
+			++ptr;
+		}
+		*ptr++ = '*';
+		*ptr++ = NumToHexa((crc >> 4) & 0x0F);
+		*ptr++ = NumToHexa(crc & 0x0F);
+		*ptr++ = '\r';
+		*ptr++ = '\n';
+		*ptr   = 0;
+
+		write(m_temp, ptr - &m_temp[0]);
 
 		if (m_mutexId)
 			osMutexRelease(m_mutexId);

@@ -112,8 +112,8 @@ void ShutdownTimerCallback(void const *arg);
 
 void Trace(const char *format, ...);
 
-#define TRACE0(str)			Trace(str)
-#define TRACE(fmt, ...)		Trace(fmt, __VA_ARGS__)
+#define TRACE0(msg)			Trace(msg)
+#define TRACE(fmt, ...)		Trace(fmt, ##__VA_ARGS__)
 
 #else
 

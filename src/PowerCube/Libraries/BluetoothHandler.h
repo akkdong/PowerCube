@@ -43,6 +43,8 @@ public:
 	int printf(const char *fmt, ...);
 	int printf(const char *fmt, va_list &args);
 
+	int trace(const char *fmt, va_list &args);
+
 protected:
 	void write(const char *str, int len = -1);
 	void write(const char *fmt, va_list &args);
