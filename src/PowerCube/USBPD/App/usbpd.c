@@ -60,9 +60,9 @@ void MX_USBPD_Init(void)
   }
 
   /* USER CODE BEGIN 3 */
-  USBPD_Device_Init();
+  BSP_USBD_Init();
 #if TEST || 0
-  USBPD_Device_Start();
+  BSP_USBD_Start();
 #endif
   /* USER CODE END 3 */
 

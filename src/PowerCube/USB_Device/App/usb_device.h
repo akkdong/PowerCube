@@ -82,10 +82,10 @@ void MX_USB_Device_Init(void);
  */
 /* USER CODE BEGIN FD */
 
-void USBPD_Device_Init();
+void BSP_USBD_Init();
 
-void USBPD_Device_Start();
-void USBPD_Device_Stop();
+void BSP_USBD_Start();
+void BSP_USBD_Stop();
 
 /* USER CODE END FD */
 /**

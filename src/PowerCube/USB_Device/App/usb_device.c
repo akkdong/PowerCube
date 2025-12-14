@@ -57,7 +57,7 @@ extern USBD_DescriptorsTypeDef CDC_Desc;
  */
 /* USER CODE BEGIN 1 */
 
-void USBPD_Device_Init()
+void BSP_USBD_Init()
 {
   if (USBD_Init(&hUsbDeviceFS, &CDC_Desc, DEVICE_FS) != USBD_OK) {
 	Error_Handler();
@@ -70,14 +70,14 @@ void USBPD_Device_Init()
   }
 }
 
-void USBPD_Device_Start()
+void BSP_USBD_Start()
 {
   if (USBD_Start(&hUsbDeviceFS) != USBD_OK) {
 	Error_Handler();
   }
 }
 
-void USBPD_Device_Stop()
+void BSP_USBD_Stop()
 {
   if (USBD_Stop(&hUsbDeviceFS) != USBD_OK) {
 	Error_Handler();

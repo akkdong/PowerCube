@@ -396,12 +396,12 @@ void USBPD_DPM_Notification(uint8_t PortNum, USBPD_NotifyEventValue_TypeDef Even
 	  DPM_USER_DEBUG_TRACE(PortNum, "Change DataRole to UFP");
 	  DPM_Params[PortNum].PE_DataRole = USBPD_PORTDATAROLE_UFP;
 
-	  USBPD_Device_Start();
+	  BSP_USBD_Start();
   }
   if (EventVal == USBPD_NOTIFY_USBSTACK_STOP)
   {
 	  DPM_USER_DEBUG_TRACE(PortNum, "Stop USB Device & Roll back DataRole to DFP");
-	  USBPD_Device_Stop();
+	  BSP_USBD_Stop();
 	  DPM_Params[PortNum].PE_DataRole = USBPD_PORTDATAROLE_DFP;
   }
 /* USER CODE END USBPD_DPM_Notification */
