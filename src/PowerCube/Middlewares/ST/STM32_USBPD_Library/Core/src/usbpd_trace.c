@@ -124,7 +124,7 @@ void USBPD_TRACE_Init(void)
 void USBPD_TRACE_DeInit(void)
 {
 #if defined(_TRACE)
-  //TRACER_EMB_DeInit();
+  TRACER_EMB_DeInit();
 #endif /* _TRACE */
 }
 

@@ -136,7 +136,7 @@ static const osThreadDef_t os_thread_def_MainTask =
 {
 	(char *)"MainTask",
 	MainTaskProc,
-	osPriorityNormal,
+	osPriorityLow,
 	0,
 	256
 };
@@ -146,7 +146,7 @@ static const osThreadDef_t os_thread_def_AdcTask =
 {
 	(char *)"AdcTask",
 	AdcTaskProc,
-	osPriorityNormal,
+	osPriorityBelowNormal,
 	0,
 	256
 };

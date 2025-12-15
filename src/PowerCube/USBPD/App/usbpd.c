@@ -31,7 +31,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 #define BSP_BOARD_NAME  "PowerBank";
-#define BSP_BOARD_ID    "PowerCube1";
+#define BSP_BOARD_ID    "Cube-PWR1";
 
 /* Private functions ---------------------------------------------------------*/
 
