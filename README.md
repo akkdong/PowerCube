@@ -4,7 +4,7 @@ PowerCube
 - Variometer
 - Bluetooth
 
-Goal: Charge mobile phone while trasmitting GPS & Variometer data. It can also support BT connectivity.
+Goal: Charge mobile phone while transmitting GPS & Variometer data. It can also support BT connectivity.
 
 <br>
 <br>
