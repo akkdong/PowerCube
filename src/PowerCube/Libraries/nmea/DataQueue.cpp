@@ -69,7 +69,6 @@ void DataQueue::dumpReserve()
 		int ch = mBuffer[i];
 		if (ch == '\r' || ch == '\n')
 			ch = '.';
-		LOGd(ch);
 
 		i = (i + 1) % MAX_NMEA_PARSER_BUFFER;
 	}

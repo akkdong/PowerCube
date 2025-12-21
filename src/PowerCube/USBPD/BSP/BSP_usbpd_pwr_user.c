@@ -25,12 +25,13 @@
 
 #include "stdarg.h"
 
-static char traceBuf[64];
+#define TRACE_BUFSIZE    50
+static char traceBuf[TRACE_BUFSIZE];
 void PWR_Trace(uint32_t port, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	int len = vsprintf(traceBuf, format, args);
+	int len = vsnprintf(traceBuf, TRACE_BUFSIZE, format, args);
 	va_end(args);
 
 	USBPD_TRACE_Add(USBPD_TRACE_DEBUG, (uint8_t)port, 0U , (uint8_t *)traceBuf, len);

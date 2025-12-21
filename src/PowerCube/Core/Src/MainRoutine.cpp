@@ -297,22 +297,3 @@ void ShutdownTimerCallback(void const *arg)
 	osMessagePut(mainQueueId, info, osWaitForever);
 }
 
-
-
-
-//
-//
-//
-
-#ifdef DEBUG
-
-void Trace(const char *format, ...)
-{
-	va_list args;
-	va_start(args, format);
-	bt.trace(format, args);
-	va_end(args);
-}
-
-#endif
-

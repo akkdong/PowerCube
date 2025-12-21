@@ -31,6 +31,12 @@
 #include "nmea/NmeaParser.h"
 
 
+//
+//
+//
+
+#define ROUTE_TO_BLUETOOTH	1
+
 
 //
 //

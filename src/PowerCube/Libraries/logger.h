@@ -14,19 +14,27 @@ extern "C" {
 //
 //
 
-#if OBSOLETE
-
-int     trace_putc(uint8_t c);
-int     trace_puts(const char* str);
-int     trace_printf(const char* format, ...);
-
-int     _log_printf(int level, const char* format, ...);
-
-#else
+#if DEBUG_USEBT
 
 extern int Trace(const char* format, ...);
 
 #define _log_printf(level, format, ...)	Trace(format, ##__VA_ARGS__);
+
+#elif DEBUG_USEUSBPD
+
+extern int _usbpd_printf(const char *format, ...);
+
+#define _log_printf(level, format, ...)	_usbpd_printf(format, ##__VA_ARGS__);
+
+#else
+
+#if OBSOLETE
+int     trace_putc(uint8_t c);
+int     trace_puts(const char* str);
+int     trace_printf(const char* format, ...);
+#endif
+
+int     _log_printf(int level, const char* format, ...);
 
 #endif
 
@@ -41,7 +49,7 @@ extern int Trace(const char* format, ...);
 #define LOG_LEVEL_DEBUG     (5)
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL           (0) // LOG_LEVEL_INFO
+#define LOG_LEVEL           (LOG_LEVEL_VERBOSE)
 #endif
 
 // ERROR

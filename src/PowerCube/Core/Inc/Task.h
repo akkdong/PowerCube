@@ -110,10 +110,28 @@ void ShutdownTimerCallback(void const *arg);
 
 #ifdef DEBUG
 
-void Trace(const char *format, ...);
+#if DEBUG_USEBT
+
+extern void Trace(const char *format, ...);
 
 #define TRACE0(msg)			Trace(msg)
 #define TRACE(fmt, ...)		Trace(fmt, ##__VA_ARGS__)
+
+#elif DEBUG_USEUSBPD
+
+extern int _usbpd_printf(const char *format, ...);
+
+#define TRACE0(msg)			_usbpd_printf(msg)
+#define TRACE(fmt, ...)		_usbpd_printf(fmt, ##__VA_ARGS__)
+
+#else
+
+#include "logger.h"
+
+#define TRACE0(msg)			_log_printf(LOG_LEVEL_DEBUG, msg)
+#define TRACE(fmt, ...)		_log_printf(LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
+
+#endif
 
 #else
 

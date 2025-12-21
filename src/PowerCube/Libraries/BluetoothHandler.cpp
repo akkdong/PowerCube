@@ -243,7 +243,7 @@ int BluetoothHandler::trace(const char *fmt, va_list &args)
 
 		strcpy(m_temp, dbgStatement);
 		char *ptr = &m_temp[0] + strlen(dbgStatement);
-		/*int len =*/ vsprintf(ptr, fmt, args);
+		/*int len =*/ vsnprintf(ptr, m_bufSize - (m_temp - ptr) - 5, fmt, args);
 
 		uint8_t crc = 0;
 		ptr = &m_temp[1];
@@ -282,7 +282,7 @@ void BluetoothHandler::write(const char *str, int len)
 
 void BluetoothHandler::write(const char *fmt, va_list &args)
 {
-	int len = vsprintf(m_temp, fmt, args);
+	int len = vsnprintf(m_temp, m_bufSize, fmt, args);
 	write(m_temp, len);
 }
 
