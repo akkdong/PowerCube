@@ -27,6 +27,7 @@
 //
 //
 
+#if DEBUG
 #if DEBUG_USEBT
 
 #include "BluetoothHandler.h"
@@ -80,6 +81,14 @@ int _usbpd_printf(const char* format, ...)
 		USBPD_TRACE_Add(USBPD_TRACE_DEBUG, (uint8_t)0, 0, (uint8_t*)__buf, len);
 
 	return len;
+}
+
+#endif
+#else
+
+int _log_printf(int level, const char* format, ...)
+{
+	return 0;
 }
 
 #endif
