@@ -123,7 +123,7 @@ static FAT_BootSector_t hFAT =
 
 static FAT_BaseEntry_t hVolume =
 {
-	"CUBE LOADER",					//Volume Name - It can be changed, respecting the 11 bit length, fill with spaces until achieve 11 bytes
+	"FWUP-PCUBE ",					//Volume Name - It can be changed, respecting the 11 bit length, fill with spaces until achieve 11 bytes
 	0x08,							//Attribute
 	0x00,							//Reserved
 	0x00,							//CreationMS
