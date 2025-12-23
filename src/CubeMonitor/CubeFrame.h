@@ -42,6 +42,8 @@ protected:
     void LayoutWidgets();
 
 protected:
+    wxAuiManager m_mgr;
+
     wxPanel* m_pMainPanel;
     wxButton* m_pBtnSend;
     wxTextCtrl* m_pTextSend;

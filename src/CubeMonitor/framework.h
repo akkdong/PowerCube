@@ -15,4 +15,5 @@
 #include <tchar.h>
 
 #include "wx/wx.h"
-#include <wx/numdlg.h>
+#include "wx/aui/aui.h"
+#include "wx/numdlg.h"

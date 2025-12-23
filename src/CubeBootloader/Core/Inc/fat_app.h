@@ -12,9 +12,9 @@
 #include "main.h"
 
 /* Exported Defines */
-#define FAT_BLOCK_NBR		0xF6			// Number of Blocks (Sectors)
-#define FAT_BLOCK_SIZE		0x800			// Size of Blocks (Sectors)
-#define FAT_RAM_ALL_NBR		0x30			// Number of Blocks allocated on RAM (should be at least 5)
+#define FAT_BLOCK_NBR		0xF6			// Number of Blocks (Sectors) - 0xF6: 246
+#define FAT_BLOCK_SIZE		0x800			// Size of Blocks (Sectors) - 0x800: 2048
+#define FAT_RAM_ALL_NBR		0x30			// Number of Blocks allocated on RAM (should be at least 5) - 0x30: 48
 #define FAT_START_CLUSTER 	0x02			// Cluster offset (the cluster count starts on 2)
 #define FAT_BASEENTRY_SIZE	32				// Length of BASE ENTRY in bytes
 #define FAT_NAME_FILE		0x45425543		//FILE NAME = "CUBExxxx"
