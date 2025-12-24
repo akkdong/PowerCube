@@ -52,6 +52,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 /* USER CODE BEGIN PFP */
 void JumpToApp(void);
+void TurnOff(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -90,34 +91,59 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
-	/* Check whether the PB0 Button is released */
+  //
+  // boot-up procedure
+  //   1. LED blinks during the waiting time(about 2s)
+  //   2. Check watermark of the user program
+  //      - user program must have a valid version string in it's first sector
+  //      - user program runs from second sector
+  //   2. Check power button (GPIOB_0)
+  //      - if power button is pressed, user program is executed --> 3
+  //      - the other case, go to update mode --> 4
+  //
+  //   3. Jump to user application
+  //      - jump into FLASH_APP_ADDR + SECTOR_SIZE
+  //
+  //   4. Update mode
+  //      - Initialize virtual FAT
+  //      - Prepare MSC
+  //      - wait....
+
+	// blink led during waiting time
   	for (int i = 0; i < 10; ++i)
   	{
   		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_12);
 		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
 		HAL_Delay(200);
   	}
-	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_RESET)
+
+  	// check version string
+  	memset(versionStr, ' ', MAX_VERSIONSTR);
+  	if((*(uint32_t*)FLASH_APP_ADDR) != 0xFFFFFFFF && strncmp((char *)FLASH_APP_ADDR, "PowerCUBE", 9) == 0)
+		strncpy((char *)versionStr, (char *)FLASH_APP_ADDR, MAX_VERSIONSTR);
+  	else
+  		strcpy((char *)versionStr, "N/A");
+
+  	// check whether power button is pressed
+	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_RESET && versionStr[0] == 'P')
 	{
-		/* ---------- Enter in Application ---------- */
-		/* Jump to application */
+		//
+		// Jump to application
+		//
 		JumpToApp();
 	}
 
-	/* ---------- Enter in Bootloader mode ---------- */
-	/* Fill the empty sector with 0s  */
-	for(int i = 0; i < FAT_BLOCK_SIZE; i++)
-	{
-		blkSector[i] = 0;
-	}
+	//
+	// ---------- Enter in update mode ----------
+	//
 
-	/* Initialize the FAT File System */
+	// Initialize the FAT File System
 	FAT_Init();
 
-	/* Initialize the USB Device MSC */
+	// Initialize the USB Device MSC
 	MX_USB_Device_Init();
 
-	/* Turn the User LED ON to indicate that application entered in Bootloader */
+	// Turn the User LED ON to indicate that application entered in update mode
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6, GPIO_PIN_SET);
 
@@ -125,8 +151,45 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint32_t lastTick = HAL_GetTick();
+  uint32_t blinkTick = lastTick, blinkCount = 0;
+  uint32_t lastPress = 0;
   while (1)
   {
+	    // do noting: explicit exit from update mode
+  		if (HAL_GetTick() - lastTick > 5 * 60 * 1000)
+  			break; // timeout 5min --> power-off
+
+  		// long key press: implicit exit from update mode
+  		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_RESET)
+  		{
+  			if (lastPress == 0)
+  				lastPress = HAL_GetTick();
+
+  			if (HAL_GetTick() - lastPress > 2500)
+  				break; // hold button for 2500ms --> power-off
+  		}
+  		else
+  		{
+  			// reset press-tick
+  			lastPress = 0;
+  		}
+
+  		// blink LED: short ON, long OFF
+  		if (HAL_GetTick() - blinkTick > 200)
+  		{
+  			// 0, 1, 2, 3, 4, 5
+  			// ^              ^
+  			if (blinkCount == 0 || blinkCount == 5)
+  			{
+  				HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_12);
+  				HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
+  			}
+
+  			blinkCount = (blinkCount + 1) % 6;
+  			blinkTick = HAL_GetTick();
+  		}
+
 		if(fatINFO.FileTransferCpt == SET)
 		{
 			/* Wait for the end of transmission */
@@ -204,6 +267,10 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
   }
+
+  // turn-off power
+  TurnOff();
+
   /* USER CODE END 3 */
 }
 
@@ -327,7 +394,7 @@ void JumpToApp(void)
 	pFunction Jump_To_Application;
 
 	/* Check whether App is available */
-	if((*(uint32_t*) FLASH_APP_ADDR) != 0xFFFFFFFF)
+	if((*(uint32_t*) FLASH_APP_ADDR) != 0xFFFFFFFF && (*(uint32_t*) FLASH_RUN_ADDR) != 0xFFFFFFFF)
 	{
 		/* De-init the GPIOS */
 		//HAL_GPIO_DeInit(GPIOC, GPIO_PIN_13);
@@ -337,24 +404,41 @@ void JumpToApp(void)
 		HAL_RCC_DeInit();
 
 		/* Jump to user application */
-		JumpAddress = *(__IO uint32_t*) (FLASH_APP_ADDR + 4);
+		JumpAddress = *(__IO uint32_t*) (FLASH_RUN_ADDR + 4);
 		Jump_To_Application = (pFunction)JumpAddress;
 
 		/* Initialize use application's Stack Pointer */
-		__set_MSP(*(__IO uint32_t*)FLASH_APP_ADDR);
+		__set_MSP(*(__IO uint32_t*)FLASH_RUN_ADDR);
 		Jump_To_Application();
 	}
 	else
 	{
 		/* Blink the LED at 0.5Hz to indicate that there isn't an application into the memory */
-		while(1)
+		for (uint32_t i = 0; i < 10; ++i)
 		{
 			HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_12);
 			HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
 			HAL_Delay(1000);
 		}
+
+		TurnOff();
 	}
 }
+
+/**
+ *
+ *
+ */
+void TurnOff(void)
+{
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
+
+	while (1)
+		HAL_Delay(100);
+}
+
 
 /**
  * @brief Perform a Flash Page Erase

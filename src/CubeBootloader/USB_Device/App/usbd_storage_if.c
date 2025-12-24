@@ -235,20 +235,18 @@ int8_t STORAGE_IsWriteProtected_FS(uint8_t lun)
 int8_t STORAGE_Read_FS(uint8_t lun, uint8_t *buf, uint32_t blk_addr, uint16_t blk_len)
 {
   /* USER CODE BEGIN 6 */
+  UNUSED(lun);
 	/* Reading data from RAM memory */
-	if(blk_addr <= FAT_RAM_ALL_NBR)
+	uint32_t addr = blk_addr * STORAGE_BLK_SIZ;
+	for (uint32_t i = 0; i < blk_len; ++i)
 	{
-		memcpy(buf, &ramBuffer[blk_addr*STORAGE_BLK_SIZ],blk_len*STORAGE_BLK_SIZ);
-	}
-	/* Reading from FLASH memory */
-	else
-	{
-		/* Copy the blank sector to the buffer */
-		for(int i = 0; i < blk_len; i++)
-		{
-			memcpy(buf, blkSector, STORAGE_BLK_SIZ);
-			buf++;
-		}
+		if ((blk_addr + i) <= FAT_RAM_ALL_NBR)
+			memcpy(buf, &ramBuffer[addr], STORAGE_BLK_SIZ);
+		else
+			memset(buf, 0, STORAGE_BLK_SIZ);
+
+		addr += STORAGE_BLK_SIZ;
+		buf += STORAGE_BLK_SIZ; // next block
 	}
 
   return (USBD_OK);
@@ -263,20 +261,24 @@ int8_t STORAGE_Read_FS(uint8_t lun, uint8_t *buf, uint32_t blk_addr, uint16_t bl
 int8_t STORAGE_Write_FS(uint8_t lun, uint8_t *buf, uint32_t blk_addr, uint16_t blk_len)
 {
   /* USER CODE BEGIN 7 */
+  UNUSED(lun);
 	/* Writing in RAM memory */
-	if(blk_addr <= FAT_RAM_ALL_NBR)
+	for (uint32_t src = 0, dst = blk_addr; src < blk_len; ++src, ++dst)
 	{
-		/* Copying received content into ramBuffer */
-		memcpy(&ramBuffer[blk_addr*STORAGE_BLK_SIZ], buf, blk_len*STORAGE_BLK_SIZ);
+		if (dst < FAT_RAM_ALL_NBR)
+		{
+			// Copying received content into ramBuffer
+			memcpy(&ramBuffer[dst * STORAGE_BLK_SIZ], &buf[src * STORAGE_BLK_SIZ], STORAGE_BLK_SIZ);
+		}
 	}
 
 	/* Check if the block address is already on the Root Directory Section */
 	if(blk_addr == fatINFO.FirstRootDirSecNum)
 	{
-		/* Auxiliar pointer to manage the ramBuffer address */
+		/* Auxiliary pointer to manage the ramBuffer address */
 		uint32_t *buff = (uint32_t*)&ramBuffer[blk_addr*STORAGE_BLK_SIZ];
 
-		/* Runs through the page looking for the "UPDF" value (0x46445055) to start writing */
+		/* Runs through the page looking for the "CUBE" value (0x45425543) to start writing */
 		for(int entryCount = 0; entryCount < FAT_BLOCK_SIZE; entryCount++)
 		{
 			if(*buff == FAT_NAME_FILE && fatINFO.ReceivedFile != SET)

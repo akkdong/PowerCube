@@ -79,6 +79,10 @@ void StartDefaultTask(void const * argument);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+__attribute__((section(".user_watermark")))
+const char version[] = FW_VERSION_STRING;
+
+
 /* USER CODE END 0 */
 
 /**

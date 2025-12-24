@@ -11,12 +11,24 @@
 #include <stdint.h>
 #include "main.h"
 
+// FAT12 Layout
+//
+//       1            1           1             1          2MB = 2 * 1024 * 1024 : 1024 sectors
+// +------------+------------+------------+------------+------------
+// | RESERVED   | FAT1       | FAT2       | ROOT DIR   | DATA
+// |            |            |            |            |
+//
+// offset
+// 0            2048         3072         4096         5120
+
 /* Exported Defines */
-#define FAT_BLOCK_NBR		0xF6			// Number of Blocks (Sectors) - 0xF6: 246
+#define MAX_VERSIONSTR		32
+#define FAT_BLOCK_NBR		0x404			// Number of Blocks (Sectors) - 1028(404h) <--- real FLASH size 0xF6: 246
 #define FAT_BLOCK_SIZE		0x800			// Size of Blocks (Sectors) - 0x800: 2048
-#define FAT_RAM_ALL_NBR		0x30			// Number of Blocks allocated on RAM (should be at least 5) - 0x30: 48
+#define FAT_RAM_ALL_NBR		0x06			// Number of Blocks allocated on RAM (should be at least 5) - RESERVED + FAT1 + FAT2 + ROOT + DATA(2)
 #define FAT_START_CLUSTER 	0x02			// Cluster offset (the cluster count starts on 2)
 #define FAT_BASEENTRY_SIZE	32				// Length of BASE ENTRY in bytes
+#define FAT_BASEENTRY_COUNT 68				// Number of BASE ENTRY in ROOT DIRENTRY - 2048 / 32 = 68
 #define FAT_NAME_FILE		0x45425543		//FILE NAME = "CUBExxxx"
 #define FAT_BIN_EXTENSION	0x004E4942		//FILE EXTENSION = "BIN"
 
@@ -74,6 +86,7 @@ typedef struct /* FAT Base Entry Metadata */
 }FAT_BaseEntry_t;
 
 /* Exported Variables */
+extern uint8_t versionStr[];
 extern uint8_t ramBuffer[];
 extern uint8_t blkSector[];
 extern FAT_BootSector_t *fatFS;

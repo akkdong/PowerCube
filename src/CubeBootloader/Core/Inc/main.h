@@ -59,8 +59,10 @@ HAL_StatusTypeDef EraseFlashPage(uint16_t page);
 /* Private defines -----------------------------------------------------------*/
 
 /* USER CODE BEGIN Private defines */
-#define FLASH_APP_ADDR				0x0800C800
+#define FLASH_APP_ADDR				(0x0800C800)
+#define FLASH_RUN_ADDR				(FLASH_APP_ADDR + FLASH_PAGE_SIZE)	// 0x0800D000
 #define FLASH_PAGE_OFFSET 			((FLASH_APP_ADDR - FLASH_BASE) / FLASH_PAGE_SIZE)
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
