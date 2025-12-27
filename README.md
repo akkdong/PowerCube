@@ -19,6 +19,9 @@ Goal: Charge mobile phone while transmitting GPS & Variometer data. It can also 
     <img src="doc/vcp-screenshot.jpg" height="640px">
   </p>
   <p>
-    <img src="doc/case-layout.png" height="640px">
+    <img src="doc/case-layout.png" width="720px">
+  </p>
+  <p>
+    <img src="doc/install.jpg" width="720px">
   </p>
 </center>
