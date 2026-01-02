@@ -53,6 +53,9 @@ Variometer vario;
 void VarioTaskProc(void const *arg)
 {
 	//
+	osDelay(400);
+
+	//
 	baro.begin(Bme280TwoWireAddress::Secondary, &i2c2);
 
 	Bme280Settings powerBaroSet = {

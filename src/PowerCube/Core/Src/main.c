@@ -82,6 +82,9 @@ void StartDefaultTask(void const * argument);
 __attribute__((section(".user_watermark")))
 const char version[] = FW_VERSION_STRING;
 
+__attribute__((section(".user_watermark")))
+const uint32_t watermark = 0xDEADBEEF;
+
 
 /* USER CODE END 0 */
 

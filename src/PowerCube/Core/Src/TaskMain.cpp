@@ -58,7 +58,7 @@ extern osMessageQId mainQueueId;
 //
 //
 
-const int maxBufSize = 64;
+const int maxBufSize = 96; // A standard GPS NMEA 0183 sentence has a maximum size of 82 characters
 
 char bufSerial2[maxBufSize];
 char bufVario[maxBufSize];
@@ -249,11 +249,33 @@ void MainTaskProc(void const * argument)
 			// ....
 			//
 
-			if (SerialUSB)
-				SerialUSB.puts(lineBuf, true);
-			#if ROUTE_TO_BLUETOOTH
-			bt.puts(lineBuf, true);
-			#endif
+#if USE_NMEAFILTER
+			// filtering NMEA sentence
+			const char *line = (const char *)lineBuf;
+#if BLOCK_SATELLITE_INFO
+			// $XXGSx : block GSV, GSA
+			if (line[3] != 'G' || line[4] != 'S')
+#elif BLOCK_TAKLERID_BD
+			if (line[1] != 'B' || line[2] != 'D')
+#endif
+#endif
+			{
+#if USE_NMEAFILTER
+#if FAKE_GN2GP
+				if (line[1] == 'G' && line[2] == 'N')
+				{
+					char *ptr = (char *)line;
+					ptr[2] = 'P';
+				}
+#endif
+#endif
+
+				if (SerialUSB)
+					SerialUSB.puts(lineBuf, true);
+				#if ROUTE_TO_BLUETOOTH
+				bt.puts(lineBuf, true);
+				#endif
+			}
 
 			lineBuf.reset();
 		}

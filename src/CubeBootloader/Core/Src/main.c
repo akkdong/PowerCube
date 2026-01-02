@@ -119,13 +119,15 @@ int main(void)
 
   	// check version string
   	memset(versionStr, ' ', MAX_VERSIONSTR);
-  	if((*(uint32_t*)FLASH_APP_ADDR) != 0xFFFFFFFF && strncmp((char *)FLASH_APP_ADDR, "PowerCUBE", 9) == 0)
-		strncpy((char *)versionStr, (char *)FLASH_APP_ADDR, MAX_VERSIONSTR);
+  	uint32_t watermark = *((uint32_t*)FLASH_APP_ADDR);
+  	const char *ptr = (char *)(FLASH_APP_ADDR + sizeof(uint32_t));
+  	if(watermark == 0xDEADBEEF && strncmp(ptr, "PowerCUBE", 9) == 0)
+		strncpy((char *)versionStr, (char *)(FLASH_APP_ADDR + sizeof(uint32_t)), MAX_VERSIONSTR);
   	else
   		strcpy((char *)versionStr, "N/A");
 
   	// check whether power button is pressed
-	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_RESET && versionStr[0] == 'P')
+	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) != GPIO_PIN_RESET && versionStr[0] == 'P')
 	{
 		//
 		// Jump to application

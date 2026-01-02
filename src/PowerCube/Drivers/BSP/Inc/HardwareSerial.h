@@ -82,8 +82,8 @@ protected:
 	RingBuffer m_rxBuf;
 	RingBuffer m_txBuf;
 
-	uint8_t m_rxData[64];
-	uint8_t m_txData[256];
+	uint8_t m_rxData[1024];
+	uint8_t m_txData[1024];
 
 	uint8_t m_rxDataCache;
 	volatile int m_txDataCache;
