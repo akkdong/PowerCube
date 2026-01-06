@@ -79,11 +79,18 @@ void StartDefaultTask(void const * argument);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-__attribute__((section(".user_watermark")))
-const char version[] = FW_VERSION_STRING;
+typedef struct __Watermark
+{
+	uint32_t code;
+	const char info[32];
+} Watermark;
+
 
 __attribute__((section(".user_watermark")))
-const uint32_t watermark = 0xDEADBEEF;
+const Watermark _watermark = {
+	.code = 0xDEADBEEF,
+	.info = FW_VERSION_STRING,
+};
 
 
 /* USER CODE END 0 */
